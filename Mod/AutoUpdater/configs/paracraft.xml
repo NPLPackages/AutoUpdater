@@ -4,8 +4,8 @@
     <url>http://tmlog.paraengine.com/version2.php</url>
   </versions>
   <hosts>
-    <host>http://tmlog.paraengine.com/</host> 
     <host>http://update.61.com/haqi/coreupdate/</host> 
+    <host>http://tmlog.paraengine.com/</host> 
     <host>http://114.80.99.134/</host> 
   </hosts>
   <cmdline>single="false" noupdate="true" mc="true" updateurl="http://update.61.com/haqi/coreupdate/;http://tmlog.paraengine.com/;http://tmver.pala5.cn/;"</cmdline>

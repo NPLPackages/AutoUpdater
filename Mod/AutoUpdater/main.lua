@@ -25,11 +25,6 @@ end
 
 function AutoUpdater:init()
 	LOG.std(nil, "info", "AutoUpdater", "plugin initialized");
-
-    NPL.load("(gl)Mod/AutoUpdater/AssetsManager.lua");
-    local AssetsManager = commonlib.gettable("Mod.AutoUpdater.AssetsManager");
-    local a = AssetsManager:new();
-    a:loadConfig("Mod/AutoUpdater/configs/paracraft.xml");
 end
 
 function AutoUpdater:OnLogin()

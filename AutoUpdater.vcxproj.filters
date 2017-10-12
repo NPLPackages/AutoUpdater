@@ -18,9 +18,6 @@
     <None Include="Mod\AutoUpdater\AssetsManager.lua">
       <Filter>Mod\AutoUpdater</Filter>
     </None>
-    <None Include="Mod\AutoUpdater\Downloader.lua">
-      <Filter>Mod\AutoUpdater</Filter>
-    </None>
   </ItemGroup>
   <ItemGroup>
     <Xml Include="Mod\AutoUpdater\configs\paracraft.xml">
