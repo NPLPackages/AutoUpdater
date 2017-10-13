@@ -6,9 +6,9 @@ Desc:
 use the lib:
 -- step 1. check version
 -- step 2. download asset manifest and download assets
--- step 3. 
+-- step 3. decompress and move files
 ------------------------------------------------------------
-NPL.load("(gl)Mod/AutoUpdater/AssetsManager.lua");
+NPL.load("npl_mod/AutoUpdater/AssetsManager.lua");
 local AssetsManager = commonlib.gettable("Mod.AutoUpdater.AssetsManager");
 ------------------------------------------------------------
 ]]

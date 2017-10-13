@@ -19,12 +19,12 @@
     </ProjectConfiguration>
   </ItemGroup>
   <ItemGroup>
-    <None Include="Mod\AutoUpdater\AssetsManager.lua" />
-    <None Include="Mod\AutoUpdater\main.lua" />
-    <None Include="Mod\AutoUpdater\test.lua" />
+    <None Include="npl_mod\AutoUpdater\AssetsManager.lua" />
+    <None Include="npl_mod\AutoUpdater\test.lua" />
+    <None Include="README.md" />
   </ItemGroup>
   <ItemGroup>
-    <Xml Include="Mod\AutoUpdater\configs\paracraft.xml" />
+    <Xml Include="npl_mod\AutoUpdater\configs\paracraft.xml" />
   </ItemGroup>
   <PropertyGroup Label="Globals">
     <ProjectGuid>{908F0482-6D7D-4FC0-A516-6CAE06429711}</ProjectGuid>

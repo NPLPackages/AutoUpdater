@@ -5,12 +5,12 @@ Date: 2017/10/13
 Desc: 
 use the lib:
 ------------------------------------------------------------
-NPL.load("(gl)Mod/AutoUpdater/test.lua");
+NPL.load("npl_mod/AutoUpdater/test.lua");
 local test = commonlib.gettable("Mod.AutoUpdater.test");
 test.testAssetsManager();
 ------------------------------------------------------------
 ]]
-NPL.load("(gl)Mod/AutoUpdater/AssetsManager.lua");
+NPL.load("npl_mod/AutoUpdater/AssetsManager.lua");
 local AssetsManager = commonlib.gettable("Mod.AutoUpdater.AssetsManager");
 local test = commonlib.gettable("Mod.AutoUpdater.test");
 function test.testAssetsManager()
@@ -18,11 +18,11 @@ function test.testAssetsManager()
     local redist_root = "test/";
 	ParaIO.CreateDirectory(redist_root);
 
-    NPL.load("(gl)Mod/AutoUpdater/AssetsManager.lua");
+    NPL.load("npl_mod/AutoUpdater/AssetsManager.lua");
     local AssetsManager = commonlib.gettable("Mod.AutoUpdater.AssetsManager");
     local a = AssetsManager:new();
     local timer;
-    a:onInit(redist_root,"Mod/AutoUpdater/configs/paracraft.xml",function(state)
+    a:onInit(redist_root,"npl_mod/AutoUpdater/configs/paracraft.xml",function(state)
         if(state)then
             if(state == AssetsManager.State.PREDOWNLOAD_VERSION)then
                 echo("=========PREDOWNLOAD_VERSION");
