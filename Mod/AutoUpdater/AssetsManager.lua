@@ -4,6 +4,9 @@ Author(s): leio
 Date: 2017/10/10
 Desc: 
 use the lib:
+-- step 1. check version
+-- step 2. download asset manifest and download assets
+-- step 3. 
 ------------------------------------------------------------
 NPL.load("(gl)Mod/AutoUpdater/AssetsManager.lua");
 local AssetsManager = commonlib.gettable("Mod.AutoUpdater.AssetsManager");
@@ -11,7 +14,8 @@ local AssetsManager = commonlib.gettable("Mod.AutoUpdater.AssetsManager");
 ]]
 NPL.load("(gl)script/ide/XPath.lua");
 NPL.load("(gl)script/ide/System/os/GetUrl.lua");
-
+NPL.load("(gl)script/ide/System/Util/ZipFile.lua");
+local ZipFile = commonlib.gettable("System.Util.ZipFile");
 local AssetsManager = commonlib.inherit(nil,commonlib.gettable("Mod.AutoUpdater.AssetsManager"));
 local FILE_LIST_FILE_EXT = ".p"
 local next_value = 0;
@@ -57,7 +61,7 @@ function AssetsManager:ctor()
     self.id = ParaGlobal.GenerateUniqueID();
     AssetsManager.global_instances[self.id] = self;
     self.configs = {
-        versions = {},
+        version_url = nil,
         hosts = {},
         cmdline = nil,
         exename = nil,
@@ -108,10 +112,9 @@ function AssetsManager:onInit(writeablePath,config_filename,event_callback)
    
 
     self.event_callback = event_callback;
-    echo("==========onInit");
-    echo(self.localVersionTxt);
-    echo(self._cacheVersionPath);
-    echo(self._cacheManifestPath);
+	LOG.std(nil, "debug", "AssetsManager", "localVersionTxt:%s",self.localVersionTxt);
+	LOG.std(nil, "debug", "AssetsManager", "_cacheVersionPath:%s",self._cacheVersionPath);
+	LOG.std(nil, "debug", "AssetsManager", "_cacheManifestPath:%s",self._cacheManifestPath);
 
     self:loadConfig(config_filename)
 end
@@ -128,9 +131,9 @@ function AssetsManager:loadConfig(filename)
 		return 
 	end
     local node;
-    -- Getting versions
-	for node in commonlib.XPath.eachNode(xmlRoot, "/configs/versions/url") do
-        self.configs.versions[#self.configs.versions+1] = node[1];
+    -- Getting version_url
+	for node in commonlib.XPath.eachNode(xmlRoot, "/configs/version") do
+        self.configs.version_url = node[1];
 	end
     -- Getting patch hosts
 	for node in commonlib.XPath.eachNode(xmlRoot, "/configs/hosts/host") do
@@ -194,12 +197,12 @@ function AssetsManager:loadLocalVersion()
     end
 end
 function AssetsManager:downloadVersion(callback)
-    local version_url = self.configs.versions[1];
+    local version_url = self.configs.version_url;
     if(version_url)then
+        self:callback(self.State.DOWNLOADING_VERSION);
+	    LOG.std(nil, "debug", "AssetsManager:downloadVersion url is: %s", version_url);
         System.os.GetUrl(version_url, function(err, msg, data)  
 	        LOG.std(nil, "debug", "AssetsManager:downloadVersion err", err);
-	        LOG.std(nil, "debug", "AssetsManager:downloadVersion msg", msg);
-	        LOG.std(nil, "debug", "AssetsManager:downloadVersion data", data);
             if(err == 200)then
                 if(data)then
                     local body = "<root>" .. data .. "</root>";
@@ -256,7 +259,7 @@ function AssetsManager:compareVersions()
 	self._needUpdate = true;
 	return self.CheckVersionEnum.CheckVersion_ThirdVersionChanged;
 end
--- step 2. download assets
+-- step 2. download asset manifest and download assets
 function AssetsManager:download()
 	if (not self._needUpdate)then
 		return;
@@ -283,6 +286,7 @@ function AssetsManager:downloadManifest(ret, hostServerIndex)
 	LOG.std(nil, "debug", "AssetsManager", "checking host server: %s",hostServer);
 	LOG.std(nil, "debug", "AssetsManager", "updatePackUrl is : %s",updatePackUrl);
 
+	self:callback(self.State.DOWNLOADING_MANIFEST);
     System.os.GetUrl(updatePackUrl, function(err, msg, data)  
         if(err == 200 and data)then
 			self:callback(self.State.MANIFEST_DOWNLOADED);
@@ -331,7 +335,6 @@ function AssetsManager:parseManifest(data)
     end
     local line;
     for line in string.gmatch(data,"([^\r\n]*)\r?\n?") do
-        echo(line);
         if(line and line ~= "")then
             local arr = split(line);
             if(#arr > 2)then
@@ -348,9 +351,10 @@ function AssetsManager:parseManifest(data)
                     hasDownloaded = false,
                     totalFileSize = file_size,
                     PercentDone = 0,
+                    md5 = md5,
                 }
                 if(ParaIO.DoesFileExist(download_unit.storagePath))then
-                    if(self:checkMD5(download_unit.storagePath,size,md5))then
+                    if(self:checkMD5(download_unit.storagePath,md5))then
 	                    LOG.std(nil, "debug", "AssetsManager", "this file has existed: %s",download_unit.storagePath);
                         download_unit.hasDownloaded = true;
                     end
@@ -360,8 +364,7 @@ function AssetsManager:parseManifest(data)
         end
     end
 end
--- not test
-function AssetsManager:checkMD5(finename,size,md5)
+function AssetsManager:checkMD5(finename,md5)
     local file = ParaIO.open(finename,"r");
     if(file:IsValid()) then
         local txt = file:GetText(0,-1);
@@ -416,9 +419,8 @@ function AssetsManager.downloadCallback(manager_id,id)
     if(not manager)then
         return
     end
-    echo("============downloading");
-    echo(msg);
     if(msg)then
+        manager:callback(manager.State.DOWNLOADING_ASSETS);
         local download_unit = manager._downloadUnits[manager.download_next_asset_index];
         local rcode = msg.rcode;
         if(rcode and rcode ~= 200)then
@@ -432,12 +434,11 @@ function AssetsManager.downloadCallback(manager_id,id)
         download_unit.PercentDone = PercentDone;
         if(PercentDone == 100)then
             download_unit.hasDownloaded = true;
-            self:downloadNext();
+            manager:downloadNext();
             if(totalFileSize ~= download_unit.totalFileSize)then
 	            LOG.std(nil, "warnig", "AssetsManager", "the size of this file is wrong: %s",download_unit.storagePath);
             end
         end
-        manager:callback(manager.State.DOWNLOADING_ASSETS);
     end
 end
 function AssetsManager:getPercent()
@@ -460,32 +461,127 @@ function AssetsManager:getPercent()
     end
     return percent;
 end
-function AssetsManager.test()
-    NPL.load("(gl)script/ide/timer.lua");
-    local sdk_root = ParaIO.GetCurDirectory(0);
-    NPL.load("(gl)Mod/AutoUpdater/AssetsManager.lua");
-    local AssetsManager = commonlib.gettable("Mod.AutoUpdater.AssetsManager");
-    local a = AssetsManager:new();
-    a:onInit(sdk_root,"Mod/AutoUpdater/configs/paracraft.xml",function(state)
-        echo("=========state");
-        echo(state);
-        if(state)then
-            local timer;
-            if(state == AssetsManager.State.PREDOWNLOAD_ASSETS)then
-                local timer = commonlib.Timer:new({callbackFunc = function(timer)
-                    echo(a:getPercent());
-                end})
-                timer:Change(0, 100)
-            end
-            if(state == AssetsManager.State.ASSETS_DOWNLOADED)then
-                if(timer)then
-                    timer:Change();
-                end
-            end    
+-- step 3. decompress and move files
+function AssetsManager:apply()
+    self:callback(self.State.PREUPDATE);
+    local version_storagePath;
+	local version_name;
+    local version_abs_app_dest_folder;
+    local len = #self._downloadUnits - 1; --except version.txt
+    local k,v;
+    for k,v in ipairs (self._downloadUnits) do
+        local storagePath = v.storagePath;
+        local indexOfLastSeparator = string.find(storagePath, ".[^.]*$");
+        local name = string.sub(storagePath,0,indexOfLastSeparator-1);
+        local app_dest_folder = string.gsub(name,self._asstesCachesPath,"");
+        app_dest_folder = self.writeablePath .. app_dest_folder;
+        if (not self:checkMD5(storagePath,v.md5)) then
+	        LOG.std(nil, "error", "AssetsManager", "failed to compare md5 file: %s",storagePath);
+			self._failedUpdateFiles[app_dest_folder] = self.UpdateFailedReason.MD5;
+            ParaIO.DeleteFile(storagePath);
+		else
+			if (not self:decompress(storagePath, name))then
+	            LOG.std(nil, "error", "AssetsManager", "failed to uncompress file: %s",storagePath);
+			    self._failedUpdateFiles[app_dest_folder] = self.UpdateFailedReason.Uncompress;
+                ParaIO.DeleteFile(storagePath);
+			else
+                local version_filename = ParaIO.GetFileName(app_dest_folder);
+                version_filename = string.lower(version_filename);
+				if (version_filename ~= "version.txt")then
+                    if(ParaIO.DeleteFile(storagePath) ~= 1)then
+	                    LOG.std(nil, "error", "AssetsManager", "failed to delete file: %s",storagePath);
+                    end
+                    ParaIO.CreateDirectory(app_dest_folder);
+					if(not ParaIO.MoveFile(name, app_dest_folder))then
+	                    LOG.std(nil, "error", "AssetsManager", "failed to move file: %s -> %s",name, app_dest_folder);
+                        self._failedUpdateFiles[app_dest_folder] = self.UpdateFailedReason.Move;
+                    end
+							
+	                LOG.std(nil, "debug", "AssetsManager", "moving file(%d/%d):%s",k, len,app_dest_folder);
+				else
+					version_storagePath = storagePath;
+					version_name = name;
+					version_abs_app_dest_folder = app_dest_folder;
+				end
+			end
         end
-        
-    end);
-    a:check(nil,function()
-        a:download();
-    end);
+    end
+    self:deleteOldFiles();
+    self._needUpdate = false;
+    local has_error = false;
+    local k,v;
+    for k,v in pairs(self._failedUpdateFiles) do
+        has_error = true;
+		self:callback(self.State.FAIL_TO_UPDATED);
+        break;
+    end
+    if(not has_error)then
+        --最后处理version.txt
+        if(ParaIO.DeleteFile(version_storagePath) ~= 1)then
+	        LOG.std(nil, "error", "AssetsManager", "failed to delete file: %s",version_storagePath);
+		end
+		if(not ParaIO.MoveFile(version_name, version_abs_app_dest_folder))then
+	        LOG.std(nil, "error", "AssetsManager", "failed to move file: %s -> %s",version_name, version_abs_app_dest_folder);
+            self:callback(self.State.FAIL_TO_UPDATED);
+            return
+		end
+		self._hasVersionFile = true;
+
+		ParaIO.DeleteFile(self.storagePath);
+        self:callback(self.State.UPDATED);
+    end
+end
+function AssetsManager:decompress(sourceFileName,destFileName)
+    if(not sourceFileName or not destFileName)then return end
+    local file = ParaIO.open(sourceFileName,"r");
+    if(file:IsValid())then
+        local content = file:GetText(0,-1);
+        local dataIO = {content = content, method = "gzip"};
+        if(NPL.Decompress(dataIO)) then
+            if(dataIO and dataIO.result)then
+                ParaIO.CreateDirectory(destFileName);
+				local file = ParaIO.open(destFileName, "w");
+				if(file:IsValid()) then
+					file:write(dataIO.result,#dataIO.result);
+					file:close();
+				end
+                return true
+            end
+		end
+    end
+    return false;
+end
+function AssetsManager:deleteOldFiles()
+    local delete_file_path = string.format("%sdeletefile.list", self.writeablePath);
+	LOG.std(nil, "debug", "AssetsManager", "beginning delete old files from:%s",delete_file_path);
+    local file = ParaIO.open(delete_file_path,"r");
+    if(file:IsValid())then
+        local content = file:GetText();
+        local name;
+        for name in string.gfind(content, "[^,]+") do
+            name = string.gsub(name,"%s","");
+			local full_path = string.format("%s%s", self.writeablePath, name);
+            if(ParaIO.DoesFileExist(full_path))then
+                if(not ParaIO.DeleteFile(full_path) ~= 1)then
+	                LOG.std(nil, "waring", "AssetsManager", "can't delete the file:%s",full_path);
+                end
+            end
+		end
+		file:close();
+    else
+	    LOG.std(nil, "debug", "AssetsManager", "can't open file:%s",delete_file_path);
+    end
+	LOG.std(nil, "debug", "AssetsManager", "finished delete old files from:%s",delete_file_path);
+end
+function AssetsManager:isNeedUpdate()
+    return self._needUpdate;
+end
+function AssetsManager:hasVersionFile()
+    return self._hasVersionFile;
+end
+function AssetsManager:getCurVersion()
+    return self._curVersion;
+end
+function AssetsManager:getLatestVersion()
+    return self._latestVersion;
 end

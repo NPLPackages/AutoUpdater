@@ -1,8 +1,5 @@
 <configs>
-  <versions>
-    <url>http://tmlog.paraengine.com/version.php</url>
-    <url>http://tmlog.paraengine.com/version2.php</url>
-  </versions>
+  <version>http://tmlog.paraengine.com/version.php</version>
   <hosts>
     <host>http://update.61.com/haqi/coreupdate/</host> 
     <host>http://tmlog.paraengine.com/</host> 

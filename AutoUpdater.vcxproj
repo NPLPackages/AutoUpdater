@@ -21,6 +21,7 @@
   <ItemGroup>
     <None Include="Mod\AutoUpdater\AssetsManager.lua" />
     <None Include="Mod\AutoUpdater\main.lua" />
+    <None Include="Mod\AutoUpdater\test.lua" />
   </ItemGroup>
   <ItemGroup>
     <Xml Include="Mod\AutoUpdater\configs\paracraft.xml" />
