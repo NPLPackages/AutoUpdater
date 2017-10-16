@@ -10,6 +10,7 @@ local AssetsManager = commonlib.gettable("Mod.AutoUpdater.AssetsManager");
 local a = AssetsManager:new();
 local timer;
 a:onInit(redist_root,"npl_mod/AutoUpdater/configs/paracraft.xml",function(state)
+
     if(state)then
         if(state == AssetsManager.State.PREDOWNLOAD_VERSION)then
             echo("=========PREDOWNLOAD_VERSION");
