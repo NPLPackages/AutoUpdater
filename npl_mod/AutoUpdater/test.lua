@@ -8,6 +8,7 @@ use the lib:
 NPL.load("npl_mod/AutoUpdater/test.lua");
 local test = commonlib.gettable("Mod.AutoUpdater.test");
 test.testAssetsManager();
+
 ------------------------------------------------------------
 ]]
 NPL.load("npl_mod/AutoUpdater/AssetsManager.lua");
