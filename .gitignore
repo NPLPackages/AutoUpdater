@@ -5,6 +5,5 @@ npl_packages
 *.sdf
 *.suo
 *.log
-*.txt
 Debug
 Release

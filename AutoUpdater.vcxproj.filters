@@ -25,4 +25,7 @@
       <Filter>npl_mod\AutoUpdater\configs</Filter>
     </Xml>
   </ItemGroup>
+  <ItemGroup>
+    <Text Include="CMakeLists.txt" />
+  </ItemGroup>
 </Project>

@@ -26,6 +26,9 @@
   <ItemGroup>
     <Xml Include="npl_mod\AutoUpdater\configs\paracraft.xml" />
   </ItemGroup>
+  <ItemGroup>
+    <Text Include="CMakeLists.txt" />
+  </ItemGroup>
   <PropertyGroup Label="Globals">
     <ProjectGuid>{908F0482-6D7D-4FC0-A516-6CAE06429711}</ProjectGuid>
     <Keyword>Win32Proj</Keyword>
