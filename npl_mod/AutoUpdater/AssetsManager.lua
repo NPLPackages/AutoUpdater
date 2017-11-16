@@ -63,9 +63,6 @@ function AssetsManager:ctor()
     self.configs = {
         version_url = nil,
         hosts = {},
-        cmdline = nil,
-        exename = nil,
-        imageexename = nil,
     }
 
     self.writeablePath = nil;
@@ -139,21 +136,6 @@ function AssetsManager:loadConfig(filename)
 	for node in commonlib.XPath.eachNode(xmlRoot, "/configs/hosts/host") do
         self.configs.hosts[#self.configs.hosts+1] = node[1];
 	end
-    -- Getting command line
-	for node in commonlib.XPath.eachNode(xmlRoot, "/configs/cmdline") do
-        self.configs.cmdline = node[1];
-        break;
-	end
-    -- Getting exename
-    for node in commonlib.XPath.eachNode(xmlRoot, "/configs/exename") do
-        self.configs.exename= node[1];
-        break;
-	end
-    -- Getting image exe name
-    for node in commonlib.XPath.eachNode(xmlRoot, "/configs/imageexename") do
-        self.configs.imageexename= node[1];
-        break;
-	end
     log(self.configs);
     
 end
@@ -200,7 +182,7 @@ function AssetsManager:downloadVersion(callback)
     local version_url = self.configs.version_url;
     if(version_url)then
         self:callback(self.State.DOWNLOADING_VERSION);
-	    LOG.std(nil, "debug", "AssetsManager:downloadVersion url is: %s", version_url);
+	    LOG.std(nil, "debug", "AssetsManager:downloadVersion url is:", version_url);
         System.os.GetUrl(version_url, function(err, msg, data)  
 	        LOG.std(nil, "debug", "AssetsManager:downloadVersion err", err);
             if(err == 200)then
@@ -426,7 +408,7 @@ function AssetsManager.downloadCallback(manager_id,id)
         if(rcode and rcode ~= 200)then
 	        LOG.std(nil, "warnig", "AssetsManager", "download failed: %s",download_unit.srcUrl);
             table.insert(manager._failedDownloadUnits,download_unit);
-            self:downloadNext();
+            manager:downloadNext();
             return
         end
         local PercentDone = msg.PercentDone or 0;

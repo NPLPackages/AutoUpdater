@@ -1,0 +1,6 @@
+<configs>
+  <version>http://10.27.3.9/coredownload/version.php</version>
+  <hosts>
+    <host>http://10.27.3.9/</host>
+  </hosts>
+</configs>
