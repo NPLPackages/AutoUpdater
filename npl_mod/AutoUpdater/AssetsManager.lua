@@ -443,6 +443,15 @@ function AssetsManager:getPercent()
     end
     return percent;
 end
+
+function AssetsManager:getTotalSize()
+    return self._totalSize
+end
+
+function AssetsManager:getDownloadedSize()
+    return self:getPercent() * self._totalSize
+end
+
 -- step 3. decompress and move files
 function AssetsManager:apply()
     self:callback(self.State.PREUPDATE);
