@@ -1,8 +1,8 @@
 --[[
-Title: 
+Title:
 Author(s): leio
 Date: 2017/10/10
-Desc: 
+Desc:
 use the lib:
 -- step 1. check version
 -- step 2. download asset manifest and download assets
@@ -45,17 +45,17 @@ AssetsManager.State = {
 	FAIL_TO_UPDATED = get_next_value()
 };
 AssetsManager.UpdateFailedReason = {
-	MD5 = get_next_value(), 
-    Uncompress = get_next_value(), 
+	MD5 = get_next_value(),
+    Uncompress = get_next_value(),
     Move = get_next_value()
 };
 -- suppose version number "1.2.3", where 1 is the first(major) version, 2 is the second version, 3 is the third version.*/
 AssetsManager.CheckVersionEnum = {
-	CheckVersion_SameAsLast = 0, 
+	CheckVersion_SameAsLast = 0,
 	CheckVersion_FirstVersionChanged = 1,
 	CheckVersion_SecondVersionChanged = 2,
 	CheckVersion_ThirdVersionChanged = 3,
-    CheckVersion_Error = -1 
+    CheckVersion_Error = -1
 };
 function AssetsManager:ctor()
     self.id = ParaGlobal.GenerateUniqueID();
@@ -92,7 +92,8 @@ function AssetsManager:ctor()
 
     self._totalSize = 0;
 end
-function AssetsManager:onInit(writeablePath,config_filename,event_callback)
+
+function AssetsManager:onInit(writeablePath,config_filename,event_callback,moving_file_callback)
     local storagePath = writeablePath .. "caches/";
     local destStoragePath = writeablePath;
 	local localVersionTxt = writeablePath .. "version.txt";
@@ -106,7 +107,7 @@ function AssetsManager:onInit(writeablePath,config_filename,event_callback)
     self._cacheManifestPath = storagePath .. "project.manifest";
     self._asstesCachesPath = nil;
 
-   
+    self.moving_file_callback = moving_file_callback
 
     self.event_callback = event_callback;
 	LOG.std(nil, "debug", "AssetsManager", "localVersionTxt:%s",self.localVersionTxt);
@@ -123,9 +124,9 @@ end
 function AssetsManager:loadConfig(filename)
     if(not filename)then return end
     local xmlRoot = ParaXML.LuaXML_ParseFile(filename);
-	if(not xmlRoot) then 
+	if(not xmlRoot) then
 	    LOG.std(nil, "error", "AssetsManager", "file %s does not exist",filename);
-		return 
+		return
 	end
     local node;
     -- Getting version_url
@@ -137,7 +138,7 @@ function AssetsManager:loadConfig(filename)
         self.configs.hosts[#self.configs.hosts+1] = node[1];
 	end
     log(self.configs);
-    
+
 end
 
 -- step 1. check version
@@ -183,7 +184,7 @@ function AssetsManager:downloadVersion(callback)
     if(version_url)then
         self:callback(self.State.DOWNLOADING_VERSION);
 	    LOG.std(nil, "debug", "AssetsManager:downloadVersion url is:", version_url);
-        System.os.GetUrl(version_url, function(err, msg, data)  
+        System.os.GetUrl(version_url, function(err, msg, data)
 	        LOG.std(nil, "debug", "AssetsManager:downloadVersion err", err);
             if(err == 200)then
                 if(data)then
@@ -222,9 +223,9 @@ function AssetsManager:compareVersions()
         for s in string.gfind(version_str, "[^.]+") do
             table.insert(result,s);
 		end
-        return result; 
+        return result;
     end
-        
+
     local cur_version_list = get_versions(self._curVersion);
     local latestVersion_list = get_versions(self._latestVersion);
     if(#cur_version_list < 3 or #latestVersion_list < 3)then
@@ -269,7 +270,7 @@ function AssetsManager:downloadManifest(ret, hostServerIndex)
 	LOG.std(nil, "debug", "AssetsManager", "updatePackUrl is : %s",updatePackUrl);
 
 	self:callback(self.State.DOWNLOADING_MANIFEST);
-    System.os.GetUrl(updatePackUrl, function(err, msg, data)  
+    System.os.GetUrl(updatePackUrl, function(err, msg, data)
         if(err == 200 and data)then
 			self:callback(self.State.MANIFEST_DOWNLOADED);
             self:parseManifest(data);
@@ -313,7 +314,7 @@ function AssetsManager:parseManifest(data)
         for s in string.gfind(str, "[^,]+") do
             table.insert(result,s);
 		end
-        return result; 
+        return result;
     end
     local line;
     for line in string.gmatch(data,"([^\r\n]*)\r?\n?") do
@@ -487,8 +488,12 @@ function AssetsManager:apply()
 	                    LOG.std(nil, "error", "AssetsManager", "failed to move file: %s -> %s",name, app_dest_folder);
                         self._failedUpdateFiles[app_dest_folder] = self.UpdateFailedReason.Move;
                     end
-							
+
 	                LOG.std(nil, "debug", "AssetsManager", "moving file(%d/%d):%s",k, len,app_dest_folder);
+
+                    if self.moving_file_callback and type(self.moving_file_callback) == "function" then
+                        self.moving_file_callback(app_dest_folder, k, len)
+                    end
 				else
 					version_storagePath = storagePath;
 					version_name = name;
@@ -507,7 +512,7 @@ function AssetsManager:apply()
         break;
     end
     if(not has_error)then
-        --×îºó´¦Àíversion.txt
+        --ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½version.txt
         if(ParaIO.DeleteFile(version_storagePath) ~= 1)then
 	        LOG.std(nil, "error", "AssetsManager", "failed to delete file: %s",version_storagePath);
 		end
