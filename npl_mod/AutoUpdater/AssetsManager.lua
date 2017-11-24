@@ -460,8 +460,38 @@ function AssetsManager:apply()
 	local version_name;
     local version_abs_app_dest_folder;
     local len = #self._downloadUnits - 1; --except version.txt
-    local k,v;
-    for k,v in ipairs (self._downloadUnits) do
+    
+    local k = 1
+    timer = commonlib.Timer:new({callbackFunc = function(timer)
+        local v = self._downloadUnits[k]
+        if not v then -- moving file finished
+            self:deleteOldFiles();
+            self._needUpdate = false;
+            local has_error = false;
+            for _, _ in pairs(self._failedUpdateFiles) do
+                has_error = true;
+		        self:callback(self.State.FAIL_TO_UPDATED);
+                break;
+            end
+            if(not has_error)then
+                --��������version.txt
+                if(ParaIO.DeleteFile(version_storagePath) ~= 1)then
+	                LOG.std(nil, "error", "AssetsManager", "failed to delete file: %s",version_storagePath);
+		        end
+		        if(not ParaIO.MoveFile(version_name, version_abs_app_dest_folder))then
+	                LOG.std(nil, "error", "AssetsManager", "failed to move file: %s -> %s",version_name, version_abs_app_dest_folder);
+                    self:callback(self.State.FAIL_TO_UPDATED);
+                    return
+		        end
+		        self._hasVersionFile = true;
+
+		        ParaIO.DeleteFile(self.storagePath);
+                self:callback(self.State.UPDATED);
+            end 
+            timer:Change()
+            return 
+        end
+
         local storagePath = v.storagePath;
         local indexOfLastSeparator = string.find(storagePath, ".[^.]*$");
         local name = string.sub(storagePath,0,indexOfLastSeparator-1);
@@ -501,31 +531,10 @@ function AssetsManager:apply()
 				end
 			end
         end
-    end
-    self:deleteOldFiles();
-    self._needUpdate = false;
-    local has_error = false;
-    local k,v;
-    for k,v in pairs(self._failedUpdateFiles) do
-        has_error = true;
-		self:callback(self.State.FAIL_TO_UPDATED);
-        break;
-    end
-    if(not has_error)then
-        --��������version.txt
-        if(ParaIO.DeleteFile(version_storagePath) ~= 1)then
-	        LOG.std(nil, "error", "AssetsManager", "failed to delete file: %s",version_storagePath);
-		end
-		if(not ParaIO.MoveFile(version_name, version_abs_app_dest_folder))then
-	        LOG.std(nil, "error", "AssetsManager", "failed to move file: %s -> %s",version_name, version_abs_app_dest_folder);
-            self:callback(self.State.FAIL_TO_UPDATED);
-            return
-		end
-		self._hasVersionFile = true;
 
-		ParaIO.DeleteFile(self.storagePath);
-        self:callback(self.State.UPDATED);
-    end
+        k = k + 1
+    end})
+    timer:Change(0, 100)
 end
 function AssetsManager:decompress(sourceFileName,destFileName)
     if(not sourceFileName or not destFileName)then return end
