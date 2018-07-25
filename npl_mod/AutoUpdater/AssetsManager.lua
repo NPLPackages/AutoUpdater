@@ -159,7 +159,7 @@ function AssetsManager:check(version,callback)
         self._comparedVersion = self:compareVersions();
 	    LOG.std(nil, "debug", "AssetsManager", "compared result is: %d",self._comparedVersion);
         self._asstesCachesPath = self.storagePath .. self._latestVersion;
-	    LOG.std(nil, "debug", "AssetsManager", "asstesCachesPath is: %s",self._asstesCachesPath);
+	    LOG.std(nil, "debug", "AssetsManager", "Assets Cach Path is: %s",self._asstesCachesPath);
 	    ParaIO.CreateDirectory(self._asstesCachesPath);
         self:callback(self.State.VERSION_CHECKED);
         if(callback)then
@@ -185,8 +185,7 @@ function AssetsManager:downloadVersion(callback)
         self:callback(self.State.DOWNLOADING_VERSION);
 	    LOG.std(nil, "debug", "AssetsManager:downloadVersion url is:", version_url);
         System.os.GetUrl(version_url, function(err, msg, data)
-	        LOG.std(nil, "debug", "AssetsManager:downloadVersion err", err);
-            if(err == 200)then
+	        if(err == 200)then
                 if(data)then
                     local body = "<root>" .. data .. "</root>";
                     local xmlRoot = ParaXML.LuaXML_ParseString(body);
@@ -202,6 +201,7 @@ function AssetsManager:downloadVersion(callback)
                     end
                 end
             else
+				LOG.std(nil, "debug", "AssetsManager:downloadVersion err", err);
                 self:callback(self.State.VERSION_ERROR);
             end
         end);
@@ -474,7 +474,7 @@ function AssetsManager:apply()
                 break;
             end
             if(not has_error)then
-                --��������version.txt
+                -- version.txt
                 if(ParaIO.DeleteFile(version_storagePath) ~= 1)then
 	                LOG.std(nil, "error", "AssetsManager", "failed to delete file: %s",version_storagePath);
 		        end
