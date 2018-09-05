@@ -148,7 +148,7 @@ end
 function AssetsManager:check(version,callback)
     self:callback(self.State.PREDOWNLOAD_VERSION);
     self._hasVersionFile = ParaIO.DoesFileExist(self.localVersionTxt);
-	if(not self._hasVersionFile and self.localVersionTxt~=AssetsManager.defaultVersionFilename) then
+	if(not self._hasVersionFile and self.localVersionTxt == (ParaIO.GetWritablePath()..AssetsManager.defaultVersionFilename)) then
 		self.localVersionTxt = AssetsManager.defaultVersionFilename;
 		self._hasVersionFile = ParaIO.DoesFileExist(self.localVersionTxt);
 	end
