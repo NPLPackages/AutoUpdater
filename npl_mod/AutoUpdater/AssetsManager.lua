@@ -8,8 +8,7 @@ use the lib:
 -- step 2. download asset manifest and download assets
 -- step 3. decompress and move files
 ------------------------------------------------------------
-NPL.load("npl_mod/AutoUpdater/AssetsManager.lua");
-local AssetsManager = commonlib.gettable("Mod.AutoUpdater.AssetsManager");
+local AssetsManager = NPL.load("AutoUpdater");
 ------------------------------------------------------------
 ]]
 NPL.load("(gl)script/ide/XPath.lua");
@@ -342,33 +341,41 @@ function AssetsManager:parseManifest(data)
             local arr = split(line);
             if(#arr > 2)then
                 local filename = arr[1];
-				local md5 = arr[2];
-				local size = arr[3];
-                local file_size = tonumber(size) or 0;
-				self._totalSize = self._totalSize + file_size;
-                local download_path = string.format("%s,%s,%s.p", filename, md5, size);
-                local download_unit = {
-                    srcUrl = string.format("%scoredownload/update/%s", hostServer, download_path),
-                    storagePath = self._assetsCachesPath .. "/" .. filename,
-                    customId = filename,
-                    hasDownloaded = false,
-                    totalFileSize = file_size,
-                    PercentDone = 0,
-                    md5 = md5,
-                }
-                if(ParaIO.DoesFileExist(download_unit.storagePath))then
-                    if(self:checkMD5(download_unit.storagePath,md5))then
-	                    LOG.std(nil, "debug", "AssetsManager", "this file has existed: %s",download_unit.storagePath);
-                        download_unit.hasDownloaded = true;
-                    end
-                end
-                table.insert(self._downloadUnits,download_unit);
+				if(not self:FilterFile(filename)) then
+					local md5 = arr[2];
+					local size = arr[3];
+					local file_size = tonumber(size) or 0;
+					self._totalSize = self._totalSize + file_size;
+					local download_path = string.format("%s,%s,%s.p", filename, md5, size);
+					local download_unit = {
+						srcUrl = string.format("%scoredownload/update/%s", hostServer, download_path),
+						storagePath = self._assetsCachesPath .. "/" .. filename,
+						customId = filename,
+						hasDownloaded = false,
+						totalFileSize = file_size,
+						PercentDone = 0,
+						md5 = md5,
+					}
+					if(ParaIO.DoesFileExist(download_unit.storagePath))then
+						if(self:checkMD5(download_unit.storagePath,md5))then
+							LOG.std(nil, "debug", "AssetsManager", "this file has existed: %s",download_unit.storagePath);
+							download_unit.hasDownloaded = true;
+						end
+					end
+					table.insert(self._downloadUnits,download_unit);
+				end
             end
         end
     end
 end
-function AssetsManager:checkMD5(finename,md5)
-    local file = ParaIO.open(finename,"r");
+
+-- virtual function: return true if one wants to skip downloading the given filename
+function AssetsManager:FilterFile(filename)
+	
+end
+
+function AssetsManager:checkMD5(filename,md5)
+    local file = ParaIO.open(filename,"r");
     if(file:IsValid()) then
         local txt = file:GetText(0,-1);
         local v = ParaMisc.md5(txt);
@@ -397,6 +404,7 @@ function AssetsManager:downloadNextAsset(index)
         else
             -- finished
 	        LOG.std(nil, "debug", "AssetsManager", "all of assets have been downloaded");
+			self:setAllDownloaded();
             self:callback(self.State.ASSETS_DOWNLOADED);
         end
         return
@@ -471,6 +479,14 @@ end
 
 function AssetsManager:getDownloadedSize()
     return self:getPercent() * self._totalSize
+end
+
+function AssetsManager:isAllDownloaded()
+	return self.isAllDownloaded_;
+end
+
+function AssetsManager:setAllDownloaded()
+	self.isAllDownloaded_ = true;
 end
 
 -- step 3. decompress and move files
