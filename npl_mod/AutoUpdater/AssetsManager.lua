@@ -379,8 +379,8 @@ function AssetsManager:checkMD5(filename,md5)
     if(file:IsValid()) then
         local txt = file:GetText(0,-1);
         local v = ParaMisc.md5(txt);
+        flie:close();
         return v == md5;
-
     end
 end
 function AssetsManager:downloadAssets()
@@ -510,6 +510,25 @@ function AssetsManager:apply()
                 break;
             end
             if(not has_error)then
+                -- if the version.txt isn't existed in the latest assets
+                -- create it with the latest_version in caches folder
+                if(not version_name)then
+                    local latest_version = self:getLatestVersion();
+                    if(not latest_version)then
+	                    LOG.std(nil, "error", "AssetsManager", "can't find latest version to update at last");
+                        self:callback(self.State.FAIL_TO_UPDATED);
+                        return
+                    end
+                    version_name = string.format("%s/%s/%s",self.storagePath, latest_version, AssetsManager.defaultVersionFilename);
+                    local file = ParaIO.open(version_name, "w");
+				    if(file:IsValid()) then
+                        local content = string.format("ver=%s\n",latest_version);
+					    file:WriteString(content);
+					    file:close();
+				    end
+                    version_abs_app_dest_folder = string.format("%s/%s",self.writeablePath,AssetsManager.defaultVersionFilename);
+                end
+
                 -- version.txt
                 if(ParaIO.DeleteFile(version_storagePath) ~= 1)then
 	                LOG.std(nil, "error", "AssetsManager", "failed to delete file: %s",version_storagePath);
