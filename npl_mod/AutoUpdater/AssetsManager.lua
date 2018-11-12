@@ -386,7 +386,7 @@ function AssetsManager:checkMD5(filename,md5)
     if(file:IsValid()) then
         local txt = file:GetText(0,-1);
         local v = ParaMisc.md5(txt);
-        flie:close();
+        file:close();
         return v == md5;
     end
 end
