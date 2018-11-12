@@ -324,6 +324,7 @@ function AssetsManager:getPatchListUrl(is_full_list, nCandidate)
 		return hostServer .. "coredownload/" .. self._latestVersion .. "/list/patch_" .. self._curVersion .. FILE_LIST_FILE_EXT;
 	end
 end
+
 function AssetsManager:parseManifest(data)
     local hostServer = self.configs.hosts[self.validHostIndex];
 	LOG.std(nil, "debug", "AssetsManager", "the valid host server is: %s",hostServer);
@@ -349,7 +350,7 @@ function AssetsManager:parseManifest(data)
 					local download_path = string.format("%s,%s,%s.p", filename, md5, size);
 					local download_unit = {
 						srcUrl = string.format("%scoredownload/update/%s", hostServer, download_path),
-						storagePath = self._assetsCachesPath .. "/" .. filename,
+						storagePath = self._assetsCachesPath .. "/" .. self:FilterStoragePath(filename),
 						customId = filename,
 						hasDownloaded = false,
 						totalFileSize = file_size,
@@ -373,6 +374,12 @@ end
 function AssetsManager:FilterFile(filename)
 	
 end
+
+-- virtual function: relative path like "database/globalstore.db", sometimes we may need to secretely change the case or filename. 
+function AssetsManager:FilterStoragePath(filename)
+	return filename;
+end
+
 
 function AssetsManager:checkMD5(filename,md5)
     local file = ParaIO.open(filename,"r");
