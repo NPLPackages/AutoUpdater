@@ -18,7 +18,7 @@ local ZipFile = commonlib.gettable("System.Util.ZipFile");
 local AssetsManager = commonlib.inherit(nil,commonlib.gettable("Mod.AutoUpdater.AssetsManager"));
 local FILE_LIST_FILE_EXT = ".p"
 local next_value = 0;
-local try_redownload_amx_num = 3;
+local try_redownload_max_num = 3;
 AssetsManager.global_instances = {};
 AssetsManager.defaultVersionFilename = "version.txt";
 
@@ -401,7 +401,7 @@ function AssetsManager:downloadNextAsset(index)
         local len = #self._failedDownloadUnits;
         if(len > 0)then
 	        LOG.std(nil, "debug", "AssetsManager", "download assets uncompleted by loop:%d",self.try_num);
-            if(self.try_num < try_redownload_amx_num)then
+            if(self.try_num < try_redownload_max_num)then
                 self.try_num = self.try_num + 1;
                 self._failedDownloadUnits = {};
                 self:downloadAssets();
