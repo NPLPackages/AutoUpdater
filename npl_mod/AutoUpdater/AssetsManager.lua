@@ -194,23 +194,27 @@ function AssetsManager:downloadVersion(callback)
         self:callback(self.State.DOWNLOADING_VERSION);
 	    LOG.std(nil, "debug", "AssetsManager:downloadVersion url is:", version_url);
         System.os.GetUrl(version_url, function(err, msg, data)
+			self._latestVersion = nil
 	        if(err == 200)then
                 if(data)then
                     local body = "<root>" .. data .. "</root>";
                     local xmlRoot = ParaXML.LuaXML_ParseString(body);
                     if(xmlRoot)then
-                        local node;
-	                    for node in commonlib.XPath.eachNode(xmlRoot, "//UpdateVersion") do
+                        for node in commonlib.XPath.eachNode(xmlRoot, "//UpdateVersion") do
                             self._latestVersion = node[1];
                             break;
 	                    end
                         if(callback)then
-                            callback();
+							if(self._latestVersion) then
+								callback();
+								return
+							end
                         end
                     end
                 end
-            else
-				LOG.std(nil, "debug", "AssetsManager:downloadVersion err", err);
+            end
+			if(not self._latestVersion) then
+				LOG.std(nil, "debug", "AssetsManager:downloadVersion err:", err);
                 self:callback(self.State.VERSION_ERROR);
             end
         end);
@@ -517,7 +521,7 @@ function AssetsManager:apply()
                 break;
             end
             if(not has_error)then
-                -- if the version.txt isn't existed in the latest assets
+                -- if the version.txt does not exist in the latest assets
                 -- create it with the latest_version in caches folder
                 if(not version_name)then
                     local latest_version = self:getLatestVersion();
