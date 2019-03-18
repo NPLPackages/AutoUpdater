@@ -340,6 +340,8 @@ function AssetsManager:parseManifest(data)
 		end
         return result;
     end
+    -- check duplicated urls
+    local duplicated_urls = {};
     local line;
     for line in string.gmatch(data,"([^\r\n]*)\r?\n?") do
         if(line and line ~= "")then
@@ -367,7 +369,13 @@ function AssetsManager:parseManifest(data)
 							download_unit.hasDownloaded = true;
 						end
 					end
-					table.insert(self._downloadUnits,download_unit);
+                    local srcUrl = download_unit.srcUrl;
+                    if(not duplicated_urls[srcUrl])then
+					    table.insert(self._downloadUnits,download_unit);
+                        duplicated_urls[srcUrl] = true;
+                    else
+						LOG.std(nil, "debug", "AssetsManager", "found duplicated url: %s",srcUrl);
+                    end
 				end
             end
         end
