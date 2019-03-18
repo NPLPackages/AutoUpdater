@@ -385,14 +385,22 @@ function AssetsManager:FilterStoragePath(filename)
 end
 
 
-function AssetsManager:checkMD5(filename,md5)
+function AssetsManager:getMD5(filename)
     local file = ParaIO.open(filename,"r");
     if(file:IsValid()) then
         local txt = file:GetText(0,-1);
         local v = ParaMisc.md5(txt);
         file:close();
-        return v == md5;
+        return v;
     end
+end
+function AssetsManager:checkMD5(filename,md5)
+    local v = self:getMD5(filename);
+    if(v ~= md5)then
+	    LOG.std(nil, "debug", "AssetsManager", "md5 is wrong: %s %s",tostring(v),tostring(md5));
+        return false
+    end
+    return true;
 end
 function AssetsManager:downloadAssets()
     self:callback(self.State.PREDOWNLOAD_ASSETS);
