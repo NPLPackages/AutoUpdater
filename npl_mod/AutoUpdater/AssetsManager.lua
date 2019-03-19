@@ -405,8 +405,10 @@ end
 function AssetsManager:checkMD5(filename,md5)
     local v = self:getMD5(filename);
     if(v ~= md5)then
-	    LOG.std(nil, "debug", "AssetsManager", "md5 is wrong: %s %s",tostring(v),tostring(md5));
+	    LOG.std(nil, "debug", "AssetsManager", "checking md5 is wrong: %s %s %s",tostring(v),tostring(md5),tostring(filename));
         return false
+    else
+	    LOG.std(nil, "debug", "AssetsManager", "checking md5 is right: %s",tostring(filename));
     end
     return true;
 end
@@ -472,10 +474,14 @@ function AssetsManager.downloadCallback(manager_id,id)
         download_unit.PercentDone = PercentDone;
         if(PercentDone == 100)then
             download_unit.hasDownloaded = true;
-            manager:downloadNext();
             if(totalFileSize ~= download_unit.totalFileSize)then
 	            LOG.std(nil, "warnig", "AssetsManager", "the size of this file is wrong: %s",download_unit.storagePath);
+            else
+	            LOG.std(nil, "debug", "AssetsManager", "download finished: %s",download_unit.srcUrl);
+	            LOG.std(nil, "debug", "AssetsManager", "save at: %s",download_unit.storagePath);
             end
+            manager:downloadNext();
+
         end
     end
 end
