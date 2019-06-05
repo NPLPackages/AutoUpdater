@@ -112,9 +112,9 @@ function AssetsManager:onInit(writablePath,config_filename,event_callback,moving
     self.moving_file_callback = moving_file_callback
 
     self.event_callback = event_callback;
-	LOG.std(nil, "debug", "AssetsManager", "localVersionTxt:%s",self.localVersionTxt);
-	LOG.std(nil, "debug", "AssetsManager", "_cacheVersionPath:%s",self._cacheVersionPath);
-	LOG.std(nil, "debug", "AssetsManager", "_cacheManifestPath:%s",self._cacheManifestPath);
+	LOG.std(nil, "info", "AssetsManager", "localVersionTxt:%s",self.localVersionTxt);
+	LOG.std(nil, "info", "AssetsManager", "_cacheVersionPath:%s",self._cacheVersionPath);
+	LOG.std(nil, "info", "AssetsManager", "_cacheManifestPath:%s",self._cacheManifestPath);
 
     self:loadConfig(config_filename)
 end
@@ -139,8 +139,7 @@ function AssetsManager:loadConfig(filename)
 	for node in commonlib.XPath.eachNode(xmlRoot, "/configs/hosts/host") do
         self.configs.hosts[#self.configs.hosts+1] = node[1];
 	end
-    log(self.configs);
-
+	LOG.std(nil, "info", "AssetsManager:loadConfig", self.configs);
 end
 
 -- step 1. check version
@@ -192,7 +191,7 @@ function AssetsManager:downloadVersion(callback)
     local version_url = self.configs.version_url;
     if(version_url)then
         self:callback(self.State.DOWNLOADING_VERSION);
-	    LOG.std(nil, "debug", "AssetsManager:downloadVersion url is:", version_url);
+	    LOG.std(nil, "info", "AssetsManager:downloadVersion url is:", version_url);
         System.os.GetUrl(version_url, function(err, msg, data)
 			self._latestVersion = nil
 	        if(err == 200)then
@@ -204,6 +203,30 @@ function AssetsManager:downloadVersion(callback)
                             self._latestVersion = node[1];
                             break;
 	                    end
+
+						-- find hosts in version.txt
+						local index = 1;
+						for node in commonlib.XPath.eachNode(xmlRoot, "//FullUpdatePackUrl") do
+							local fullUpdatePackUrl = node[1];
+							-- if the path already ends with "/", we will use it as root url. 
+							if(not fullUpdatePackUrl:match("/$")) then
+								-- if the path contains coredownload/, we will remove everything after it. 
+								fullUpdatePackUrl = fullUpdatePackUrl:gsub("coredownload.*$", "")
+							end
+							table.insert(self.configs.hosts, index, fullUpdatePackUrl);
+							LOG.std(nil, "info", "AssetsManager", "adding host: %s in version file", fullUpdatePackUrl);
+							index = index + 1;
+							-- remove duplicates
+							for i=index, #self.configs.hosts do
+								if(self.configs.hosts[i] == fullUpdatePackUrl) then
+									LOG.std(nil, "info", "AssetsManager", "remove duplicates at %d", i);
+									table.remove(self.configs.hosts, i);
+									break;
+								end
+							end
+	                    end
+						-- echo(self.configs.hosts)
+
                         if(callback)then
 							if(self._latestVersion) then
 								callback();
@@ -214,7 +237,7 @@ function AssetsManager:downloadVersion(callback)
                 end
             end
 			if(not self._latestVersion) then
-				LOG.std(nil, "debug", "AssetsManager:downloadVersion err:", err);
+				LOG.std(nil, "info", "AssetsManager:downloadVersion err:", err);
                 self:callback(self.State.VERSION_ERROR);
             end
         end);
@@ -289,8 +312,8 @@ function AssetsManager:downloadManifest(ret, hostServerIndex)
 	end
 	self:callback(self.State.PREDOWNLOAD_MANIFEST);
 	local hostServer = self.configs.hosts[hostServerIndex];
-	LOG.std(nil, "debug", "AssetsManager", "checking host server: %s",hostServer);
-	LOG.std(nil, "debug", "AssetsManager", "updatePackUrl is : %s",updatePackUrl);
+	LOG.std(nil, "info", "AssetsManager", "checking host server: %s",hostServer);
+	LOG.std(nil, "info", "AssetsManager", "updatePackUrl is : %s",updatePackUrl);
 
 	self:callback(self.State.DOWNLOADING_MANIFEST);
     System.os.GetUrl(updatePackUrl, function(err, msg, data)
@@ -331,7 +354,7 @@ end
 
 function AssetsManager:parseManifest(data)
     local hostServer = self.configs.hosts[self.validHostIndex];
-	LOG.std(nil, "debug", "AssetsManager", "the valid host server is: %s",hostServer);
+	LOG.std(nil, "info", "AssetsManager", "the valid host server is: %s",hostServer);
     local function split(str)
         local result = {};
         local s;
@@ -363,7 +386,7 @@ function AssetsManager:parseManifest(data)
 					}
 					if(ParaIO.DoesFileExist(download_unit.storagePath))then
 						if(self:checkMD5(download_unit.storagePath,md5))then
-							LOG.std(nil, "debug", "AssetsManager", "this file has existed: %s",download_unit.storagePath);
+							LOG.std(nil, "info", "AssetsManager", "this file has existed: %s",download_unit.storagePath);
 							download_unit.hasDownloaded = true;
 						end
 					end
@@ -372,6 +395,8 @@ function AssetsManager:parseManifest(data)
             end
         end
     end
+    local len = #self._downloadUnits;
+	LOG.std(nil, "info", "AssetsManager", "the length of downloadUnits:%d",len);
 end
 
 -- virtual function: return true if one wants to skip downloading the given filename
@@ -404,7 +429,7 @@ function AssetsManager:downloadNextAsset(index)
     if(index > len)then
         local len = #self._failedDownloadUnits;
         if(len > 0)then
-	        LOG.std(nil, "debug", "AssetsManager", "download assets uncompleted by loop:%d",self.try_num);
+	        LOG.std(nil, "info", "AssetsManager", "download assets uncompleted by loop:%d",self.try_num);
             if(self.try_num < try_redownload_max_num)then
                 self.try_num = self.try_num + 1;
                 self._failedDownloadUnits = {};
@@ -414,7 +439,7 @@ function AssetsManager:downloadNextAsset(index)
             end
         else
             -- finished
-	        LOG.std(nil, "debug", "AssetsManager", "all of assets have been downloaded");
+	        LOG.std(nil, "info", "AssetsManager", "all of assets have been downloaded");
 			self:setAllDownloaded();
             self:callback(self.State.ASSETS_DOWNLOADED);
         end
@@ -423,8 +448,8 @@ function AssetsManager:downloadNextAsset(index)
     local unit = self._downloadUnits[index];
     if(unit)then
         if(not unit.hasDownloaded)then
-	        LOG.std(nil, "debug", "AssetsManager", "downloading: %s",unit.srcUrl);
-	        LOG.std(nil, "debug", "AssetsManager", "temp storagePath: %s",unit.storagePath);
+	        LOG.std(nil, "info", "AssetsManager", "downloading: %s",unit.srcUrl);
+	        LOG.std(nil, "info", "AssetsManager", "temp storagePath: %s",unit.storagePath);
             local callback_str = string.format([[Mod.AutoUpdater.AssetsManager.downloadCallback("%s","%s")]],self.id,unit.customId);
 	        NPL.AsyncDownload(unit.srcUrl, unit.storagePath, callback_str, unit.customId);
         else
@@ -506,7 +531,7 @@ function AssetsManager:apply()
     local version_storagePath;
 	local version_name;
     local version_abs_app_dest_folder;
-    local len = #self._downloadUnits - 1; --except version.txt
+    local len = #self._downloadUnits; --include version.txt if it is existed
     
     local k = 1
     timer = commonlib.Timer:new({callbackFunc = function(timer)
@@ -590,7 +615,7 @@ function AssetsManager:apply()
                         self._failedUpdateFiles[app_dest_folder] = self.UpdateFailedReason.Move;
                     end
 
-	                LOG.std(nil, "debug", "AssetsManager", "moving file(%d/%d):%s",k, len,app_dest_folder);
+	                LOG.std(nil, "info", "AssetsManager", "moving file(%d/%d):%s",k, len,app_dest_folder);
 
                     if self.moving_file_callback and type(self.moving_file_callback) == "function" then
                         self.moving_file_callback(app_dest_folder, k, len)
@@ -629,7 +654,7 @@ function AssetsManager:decompress(sourceFileName,destFileName)
 end
 function AssetsManager:deleteOldFiles()
     local delete_file_path = string.format("%sdeletefile.list", self.writablePath);
-	LOG.std(nil, "debug", "AssetsManager", "beginning delete old files from:%s",delete_file_path);
+	LOG.std(nil, "info", "AssetsManager", "beginning delete old files from:%s",delete_file_path);
     local file = ParaIO.open(delete_file_path,"r");
     if(file:IsValid())then
         local content = file:GetText();
@@ -645,9 +670,9 @@ function AssetsManager:deleteOldFiles()
 		end
 		file:close();
     else
-	    LOG.std(nil, "debug", "AssetsManager", "can't open file:%s",delete_file_path);
+	    LOG.std(nil, "info", "AssetsManager", "can't open file:%s",delete_file_path);
     end
-	LOG.std(nil, "debug", "AssetsManager", "finished delete old files from:%s",delete_file_path);
+	LOG.std(nil, "info", "AssetsManager", "finished delete old files from:%s",delete_file_path);
 end
 function AssetsManager:isNeedUpdate()
     return self._needUpdate;
@@ -660,4 +685,25 @@ function AssetsManager:getCurVersion()
 end
 function AssetsManager:getLatestVersion()
     return self._latestVersion;
+end
+-- get the number value of version
+-- @param {string} version - "0.0.1"
+-- return {number}
+function AssetsManager.getVersionNumberValue(version)
+    if(not version)then
+        return -1;
+    end
+    local function get_versions(version_str)
+        local result = {};
+        for s in string.gfind(version_str, "%d+") do
+            table.insert(result, tonumber(s));
+		end
+        return result;
+    end
+    local version_list = get_versions(version);
+      if(#version_list < 3 )then
+		return -1;
+    end
+    local v = version_list[1] * 1000 * 1000 + version_list[2] * 1000 + version_list[3]
+    return v;
 end
