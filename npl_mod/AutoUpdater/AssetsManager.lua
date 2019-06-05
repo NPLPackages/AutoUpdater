@@ -363,6 +363,8 @@ function AssetsManager:parseManifest(data)
 		end
         return result;
     end
+    -- check duplicated urls
+    local duplicated_urls = {};
     local line;
     for line in string.gmatch(data,"([^\r\n]*)\r?\n?") do
         if(line and line ~= "")then
@@ -390,7 +392,13 @@ function AssetsManager:parseManifest(data)
 							download_unit.hasDownloaded = true;
 						end
 					end
-					table.insert(self._downloadUnits,download_unit);
+                    local srcUrl = download_unit.srcUrl;
+                    if(not duplicated_urls[srcUrl])then
+					    table.insert(self._downloadUnits,download_unit);
+                        duplicated_urls[srcUrl] = true;
+                    else
+						LOG.std(nil, "debug", "AssetsManager", "found duplicated url: %s",srcUrl);
+                    end
 				end
             end
         end
@@ -410,14 +418,24 @@ function AssetsManager:FilterStoragePath(filename)
 end
 
 
-function AssetsManager:checkMD5(filename,md5)
+function AssetsManager:getMD5(filename)
     local file = ParaIO.open(filename,"r");
     if(file:IsValid()) then
         local txt = file:GetText(0,-1);
         local v = ParaMisc.md5(txt);
         file:close();
-        return v == md5;
+        return v;
     end
+end
+function AssetsManager:checkMD5(filename,md5)
+    local v = self:getMD5(filename);
+    if(v ~= md5)then
+	    LOG.std(nil, "debug", "AssetsManager", "checking md5 is wrong: %s %s %s",tostring(v),tostring(md5),tostring(filename));
+        return false
+    else
+	    LOG.std(nil, "debug", "AssetsManager", "checking md5 is right: %s",tostring(filename));
+    end
+    return true;
 end
 function AssetsManager:downloadAssets()
     self:callback(self.State.PREDOWNLOAD_ASSETS);
@@ -481,10 +499,14 @@ function AssetsManager.downloadCallback(manager_id,id)
         download_unit.PercentDone = PercentDone;
         if(PercentDone == 100)then
             download_unit.hasDownloaded = true;
-            manager:downloadNext();
             if(totalFileSize ~= download_unit.totalFileSize)then
 	            LOG.std(nil, "warnig", "AssetsManager", "the size of this file is wrong: %s",download_unit.storagePath);
+            else
+	            LOG.std(nil, "debug", "AssetsManager", "download finished: %s",download_unit.srcUrl);
+	            LOG.std(nil, "debug", "AssetsManager", "save at: %s",download_unit.storagePath);
             end
+            manager:downloadNext();
+
         end
     end
 end
