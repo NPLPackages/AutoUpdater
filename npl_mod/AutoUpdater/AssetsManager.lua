@@ -208,21 +208,26 @@ function AssetsManager:downloadVersion(callback)
 						local index = 1;
 						for node in commonlib.XPath.eachNode(xmlRoot, "//FullUpdatePackUrl") do
 							local fullUpdatePackUrl = node[1];
-							-- if the path already ends with "/", we will use it as root url. 
-							if(not fullUpdatePackUrl:match("/$")) then
-								-- if the path contains coredownload/, we will remove everything after it. 
-								fullUpdatePackUrl = fullUpdatePackUrl:gsub("coredownload.*$", "")
-							end
-							table.insert(self.configs.hosts, index, fullUpdatePackUrl);
-							LOG.std(nil, "info", "AssetsManager", "adding host: %s in version file", fullUpdatePackUrl);
-							index = index + 1;
-							-- remove duplicates
-							for i=index, #self.configs.hosts do
-								if(self.configs.hosts[i] == fullUpdatePackUrl) then
-									LOG.std(nil, "info", "AssetsManager", "remove duplicates at %d", i);
-									table.remove(self.configs.hosts, i);
-									break;
+							if(fullUpdatePackUrl) then
+								-- if the path already ends with "/", we will use it as root url. 
+								if(not fullUpdatePackUrl:match("/$")) then
+									-- if the path contains coredownload/, we will remove everything after it. 
+									fullUpdatePackUrl = fullUpdatePackUrl:gsub("coredownload.*$", "")
 								end
+								table.insert(self.configs.hosts, index, fullUpdatePackUrl);
+								LOG.std(nil, "info", "AssetsManager", "adding host: %s in version file", fullUpdatePackUrl);
+								index = index + 1;
+								-- remove duplicates
+								for i=index, #self.configs.hosts do
+									if(self.configs.hosts[i] == fullUpdatePackUrl) then
+										LOG.std(nil, "info", "AssetsManager", "remove duplicates at %d", i);
+										table.remove(self.configs.hosts, i);
+										break;
+									end
+								end
+							else
+								LOG.std(nil, "info", "AssetsManager", "FullUpdatePackUrl not found");
+								echo(node);
 							end
 	                    end
 						-- echo(self.configs.hosts)
