@@ -115,7 +115,8 @@ function AssetsManager:onInit(writablePath,config_filename,event_callback,moving
 	LOG.std(nil, "info", "AssetsManager", "localVersionTxt:%s",self.localVersionTxt);
 	LOG.std(nil, "info", "AssetsManager", "_cacheVersionPath:%s",self._cacheVersionPath);
 	LOG.std(nil, "info", "AssetsManager", "_cacheManifestPath:%s",self._cacheManifestPath);
-
+	LOG.std(nil, "info", "AssetsManager", "config_filename:%s", config_filename or "");
+	
     self:loadConfig(config_filename)
 end
 function AssetsManager:callback(state)
@@ -191,6 +192,7 @@ function AssetsManager:downloadVersion(callback)
     local version_url = self.configs.version_url;
     if(version_url)then
         self:callback(self.State.DOWNLOADING_VERSION);
+        version_url = string.format("%s?v=%s",version_url,ParaGlobal.GetDateFormat("yyyy-M-d"));
 	    LOG.std(nil, "info", "AssetsManager:downloadVersion url is:", version_url);
         System.os.GetUrl(version_url, function(err, msg, data)
 			self._latestVersion = nil
