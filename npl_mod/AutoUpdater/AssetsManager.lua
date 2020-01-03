@@ -144,6 +144,7 @@ function AssetsManager:loadConfig(filename)
 end
 
 -- step 1. check version
+-- @param callback: function(bSucceed) end
 function AssetsManager:check(version,callback)
     self:callback(self.State.PREDOWNLOAD_VERSION);
     self._hasVersionFile = ParaIO.DoesFileExist(self.localVersionTxt);
@@ -161,16 +162,18 @@ function AssetsManager:check(version,callback)
         self._curVersion = version;
     end
 	LOG.std(nil, "info", "AssetsManager", "local version is: %s",self._curVersion);
-    self:downloadVersion(function()
-	    LOG.std(nil, "info", "AssetsManager", "remote version is: %s",self._latestVersion);
-        self._comparedVersion = self:compareVersions();
-	    LOG.std(nil, "info", "AssetsManager", "compared result is: %d",self._comparedVersion);
-        self._assetsCachesPath = self.storagePath .. self._latestVersion;
-	    LOG.std(nil, "info", "AssetsManager", "Assets Cache Path is: %s",self._assetsCachesPath);
-	    ParaIO.CreateDirectory(self._assetsCachesPath);
-        self:callback(self.State.VERSION_CHECKED);
+    self:downloadVersion(function(bSucceed)
+		if(bSucceed) then
+			LOG.std(nil, "info", "AssetsManager", "remote version is: %s",self._latestVersion);
+			self._comparedVersion = self:compareVersions();
+			LOG.std(nil, "info", "AssetsManager", "compared result is: %d",self._comparedVersion);
+			self._assetsCachesPath = self.storagePath .. self._latestVersion;
+			LOG.std(nil, "info", "AssetsManager", "Assets Cache Path is: %s",self._assetsCachesPath);
+			ParaIO.CreateDirectory(self._assetsCachesPath);
+			self:callback(self.State.VERSION_CHECKED);
+		end
         if(callback)then
-            callback();
+            callback(bSucceed);
         end
     end);
 end
@@ -188,6 +191,8 @@ function AssetsManager:loadLocalVersion()
 		LOG.std(nil, "warn", "AssetsManager", "file %s not FOUND", self.localVersionTxt);	
 	end
 end
+
+-- @param callback: function(bSucceed) end
 function AssetsManager:downloadVersion(callback)
     local version_url = self.configs.version_url;
     if(version_url)then
@@ -236,7 +241,7 @@ function AssetsManager:downloadVersion(callback)
 
                         if(callback)then
 							if(self._latestVersion) then
-								callback();
+								callback(true);
 								return
 							end
                         end
@@ -244,8 +249,11 @@ function AssetsManager:downloadVersion(callback)
                 end
             end
 			if(not self._latestVersion) then
-				LOG.std(nil, "info", "AssetsManager:downloadVersion err:", err);
+				LOG.std(nil, "warn", "AssetsManager:downloadVersion err:", err);
                 self:callback(self.State.VERSION_ERROR);
+				if(callback) then
+					callback(false);
+				end
             end
         end);
     end
