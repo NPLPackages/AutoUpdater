@@ -270,7 +270,7 @@ function AssetsManager:compareVersions()
 
     local function get_versions(version_str)
         local result = {};
-        for s in string.gfind(version_str, "%d+") do
+        for s in string.gfind(version_str or "", "%d+") do
             table.insert(result, tonumber(s));
 		end
         return result;
