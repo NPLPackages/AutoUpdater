@@ -119,9 +119,9 @@ function AssetsManager:onInit(writablePath,config_filename,event_callback,moving
 	
     self:loadConfig(config_filename)
 end
-function AssetsManager:callback(state)
+function AssetsManager:callback(state, ...)
     if(self.event_callback)then
-        self.event_callback(state);
+        self.event_callback(state, ...);
     end
 end
 function AssetsManager:loadConfig(filename)
