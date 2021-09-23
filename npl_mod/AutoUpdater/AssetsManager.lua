@@ -203,6 +203,10 @@ function AssetsManager:downloadVersion(callback)
 			self._latestVersion = nil
 	        if(err == 200)then
                 if(data)then
+                    if(type(data) == "table")then
+                        NPL.load("(gl)script/ide/serialization.lua");
+                        data = commonlib.serialize(data);
+                    end
                     local body = "<root>" .. data .. "</root>";
                     local xmlRoot = ParaXML.LuaXML_ParseString(body);
                     if(xmlRoot)then
@@ -592,7 +596,8 @@ function AssetsManager:apply()
                         self:callback(self.State.FAIL_TO_UPDATED);
                         return
                     end
-                    version_name = string.format("%s/%s/%s",self.storagePath, latest_version, AssetsManager.defaultVersionFilename);
+                    version_name = string.format("%s%s/%s",self.storagePath, latest_version, AssetsManager.defaultVersionFilename);
+					LOG.std(nil, "info", "AssetsManager", "set version_name: %s", version_name);
                     local file = ParaIO.open(version_name, "w");
 				    if(file:IsValid()) then
                         local content = string.format("ver=%s\n",latest_version);
@@ -603,16 +608,19 @@ function AssetsManager:apply()
                 end
 
                 -- version.txt
-                if(version_storagePath and ParaIO.DeleteFile(version_storagePath) ~= 1)then
-	                LOG.std(nil, "error", "AssetsManager", "failed to delete file: %s",version_storagePath);
+	            LOG.std(nil, "info", "AssetsManager", "try to delete file: %s", version_storagePath);
+                if(version_storagePath and  version_storagePath ~= "" and ParaIO.DeleteFile(version_storagePath) ~= 1)then
+	                LOG.std(nil, "error", "AssetsManager", "failed to delete file: %s", version_storagePath);
 		        end
 		        if(not ParaIO.MoveFile(version_name, version_abs_app_dest_folder))then
 	                LOG.std(nil, "error", "AssetsManager", "failed to move file: %s -> %s",version_name, version_abs_app_dest_folder);
                     self:callback(self.State.FAIL_TO_UPDATED, version_abs_app_dest_folder, self.UpdateFailedReason.Move);
+					timer:Change();
                     return
 		        end
 		        self._hasVersionFile = true;
 
+	            LOG.std(nil, "info", "AssetsManager", "remove: %s", self.storagePath);
 		        ParaIO.DeleteFile(self.storagePath);
                 self:callback(self.State.UPDATED);
             end 
@@ -658,6 +666,7 @@ function AssetsManager:apply()
                         self.moving_file_callback(app_dest_folder, k, len)
                     end
 				else
+	                LOG.std(nil, "error", "AssetsManager", "found version path at last: %s", storagePath);
 					version_storagePath = storagePath;
 					version_name = name;
 					version_abs_app_dest_folder = app_dest_folder;
