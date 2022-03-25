@@ -77,6 +77,8 @@ function AssetsManager:ctor()
 
     self._curVersion = nil;
     self._latestVersion = nil;
+    self._minSkipVersion = nil; --允许跳过更新的最低版本号
+    self._runTimeMinSkipVersion = nil; --允许跳过更新的nplRuntime最低版本号
     self._needUpdate = false;
     self._comparedVersion = nil;
     self._hasVersionFile = false;
@@ -172,11 +174,67 @@ function AssetsManager:check(version,callback)
 			ParaIO.CreateDirectory(self._assetsCachesPath);
 			self:callback(self.State.VERSION_CHECKED);
 		end
-        if(callback)then
-            callback(bSucceed);
+        
+        self:requestMinVersion(function()
+            if(callback)then
+                callback(bSucceed);
+            end
+        end)
+    end);
+end
+
+--从后端获取获取minVersion
+--只要curVersion>=minVersion,就允许跳过本次更新
+function AssetsManager:requestMinVersion(callback)
+    self._minSkipVersion = nil
+    self._runTimeMinSkipVersion = nil
+    keepwork.update.min_version({router_params = {appid = "paracraft"}, channelId = 430}, function(err, msg, data)
+        if (err == 200) then
+            self._minSkipVersion = data.miniVersion
+            self._runTimeMinSkipVersion = data.miniNPLRuntimeVersion
+            if callback then callback() end
+        else
+            if callback then callback() end
         end
     end);
 end
+
+--返回值： ver_1 - ver_2
+function AssetsManager:_compareVer(ver_1,ver_2)
+    local function get_versions(version_str)
+        local result = {};
+        for s in string.gfind(version_str or "", "%d+") do
+            table.insert(result, tonumber(s));
+		end
+        while(#result<3)do 
+            table.insert(result,0)
+        end
+        return result;
+    end
+    local list_1 = get_versions(ver_1)
+    local list_2 = get_versions(ver_2)
+    if(list_1[1] == list_2[1])then
+        if(list_1[2] == list_2[2])then
+            return list_1[3] - list_2[3]
+        else
+            return list_1[2] - list_2[2]
+        end
+    else
+        return list_1[1] - list_2[1]
+    end
+end
+
+--是否可以跳过更新
+function AssetsManager:isAutoSkip()
+    if self._minSkipVersion==nil then --没有请求到数据
+        return false
+    end
+    
+    -- print("hyz self._curVersion,self._minSkipVersion",self._curVersion,self._minSkipVersion)
+    -- print("----hyz aaa",_compare(self._curVersion,self._minSkipVersion))
+    return self:_compareVer(self._curVersion,self._minSkipVersion)>=0
+end
+
 function AssetsManager:loadLocalVersion()
     self._curVersion = "0";
     local file = ParaIO.open(self.localVersionTxt, "r");
