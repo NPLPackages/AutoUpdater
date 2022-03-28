@@ -631,9 +631,9 @@ end
 
 --是否需要打开Launcher进行更新
 function AssetsManager:needApplyByLauncher()
-    print(System.os.GetPlatform() == "win32" and not System.os.IsWindowsXP())
-    if not System.options.isDevMode then
-        return false
+    print("needApplyByLauncher",System.os.GetPlatform() == "win32" and not System.os.IsWindowsXP())
+    if System.options.channelId=="430" and (System.os.GetPlatform() == "win32" and not System.os.IsWindowsXP()) then --改成全都是使用Launcher应用更新
+        return true
     end
     if System.options.channelId=="430" and (System.os.GetPlatform() == "win32" and not System.os.IsWindowsXP()) and self.hasDllUpdate then 
         return true
@@ -693,8 +693,8 @@ function AssetsManager:applyByLauncher()
     print("hyz---------applyManifestFile",applyManifestFile)
     print("hyz---------applyVerFile",applyVerFile)
     local cmdStr = string.format("isFixMode=%s applyManifestFile=%s applyVerFile=%s",tostring(isFixMode),applyManifestFile,applyVerFile)
-    -- ParaGlobal.ShellExecute("open", "ParaCraft.exe", "", cmdStr, 1);
-    -- ParaGlobal.ExitApp();
+    ParaGlobal.ShellExecute("open", "ParaCraft.exe", "", cmdStr, 1);
+    ParaGlobal.ExitApp();
 end
 
 -- step 3. decompress and move files
