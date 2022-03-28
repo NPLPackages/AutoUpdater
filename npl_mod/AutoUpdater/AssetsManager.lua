@@ -440,6 +440,7 @@ function AssetsManager:parseManifest(data)
 		end
         return result;
     end
+    self.hasDllUpdate = false --是否存在dll更新
     -- check duplicated urls
     local duplicated_urls = {};
     local line;
@@ -449,6 +450,10 @@ function AssetsManager:parseManifest(data)
             if(#arr > 2)then
                 local filename = arr[1];
 				if(not self:FilterFile(filename)) then
+                    if(filename:match("%.exe") or filename:match("%.dll")) then
+                        print("-------self.hasDllUpdate = true")
+                        self.hasDllUpdate = true
+                    end
 					local md5 = arr[2];
 					local size = arr[3];
 					local file_size = tonumber(size) or 0;
@@ -624,8 +629,80 @@ function AssetsManager:setAllDownloaded()
 	self.isAllDownloaded_ = true;
 end
 
+--是否需要打开Launcher进行更新
+function AssetsManager:needApplyByLauncher()
+    print(System.os.GetPlatform() == "win32" and not System.os.IsWindowsXP())
+    if not System.options.isDevMode then
+        return false
+    end
+    if System.options.channelId=="430" and (System.os.GetPlatform() == "win32" and not System.os.IsWindowsXP()) and self.hasDllUpdate then 
+        return true
+    end
+    return false
+end
+
+--写入一个文本，让launcher去apply
+--[[
+    std::string srcUrl;
+    std::string storagePath;
+    std::string customId;
+    bool resumeDownload;
+    bool hasDownloaded;
+]]
+function AssetsManager:applyByLauncher()
+    local len = #self._downloadUnits
+    local arr = {}
+    for i=1,len do
+        local unit = self._downloadUnits[i]
+        local path = string.gsub(unit.storagePath,ParaIO.GetWritablePath(),"")
+        local tab = {
+            unit.srcUrl,
+            path,
+            unit.customId,
+            tostring(unit.resumeDownload or false),
+            tostring(unit.hasDownloaded),
+        }
+        local line = table.concat(tab,"|")
+        table.insert(arr,line)
+    end
+
+    local str = table.concat(arr,"\r\n")
+    
+    local isFixMode = false
+
+    local applyManifestFile = self.storagePath.."430apply.manifest"
+    local file = ParaIO.open(applyManifestFile, "w");
+    if(file:IsValid()) then
+        file:WriteString(str);
+        file:close();
+    else
+        isFixMode = true
+    end
+
+    local latest_version = self:getLatestVersion();
+    local applyVerFile = self.storagePath.."430applyVer.txt"
+    file = ParaIO.open(applyVerFile, "w");
+    if(latest_version and file:IsValid()) then
+        local content = string.format("ver=%s\n",latest_version);
+        file:WriteString(content);
+        file:close();
+    else
+        isFixMode = true
+    end
+    print("hyz---------isFixMode",isFixMode)
+    print("hyz---------applyManifestFile",applyManifestFile)
+    print("hyz---------applyVerFile",applyVerFile)
+    local cmdStr = string.format("isFixMode=%s applyManifestFile=%s applyVerFile=%s",tostring(isFixMode),applyManifestFile,applyVerFile)
+    ParaGlobal.ShellExecute("open", "ParaCraft.exe", "", cmdStr, 1);
+    ParaGlobal.ExitApp();
+end
+
 -- step 3. decompress and move files
 function AssetsManager:apply()
+    if self:needApplyByLauncher() then
+        self:applyByLauncher()
+        return
+    end
     self:callback(self.State.PREUPDATE);
     local version_storagePath = "";
 	local version_name;
