@@ -558,6 +558,13 @@ function AssetsManager:downloadNextAsset(index)
     end
 end
 function AssetsManager:downloadNext()
+    local ret = GameLogic.GetFilters():apply_filters('check_is_downloading_from_lan',{
+        needShowDownloadWorldUI = true,
+    })
+    if ret and ret._hasStartDownloaded then ---已经在局域网开始更新了,停止下载任务
+        print("-----走局域网了")
+        return
+    end
     self.download_next_asset_index = self.download_next_asset_index + 1;
     self:downloadNextAsset(self.download_next_asset_index);
 end
@@ -693,7 +700,8 @@ function AssetsManager:applyByLauncher()
     print("hyz---------applyManifestFile",applyManifestFile)
     print("hyz---------applyVerFile",applyVerFile)
     local cmdStr = string.format("isFixMode=%s applyManifestFile=%s applyVerFile=%s",tostring(isFixMode),applyManifestFile,applyVerFile)
-    ParaGlobal.ShellExecute("open", "ParaCraft.exe", "", cmdStr, 1);
+    print("cmdStr",cmdStr)
+    ParaGlobal.ShellExecute("open", "ParaCraft.exe", cmdStr, "", 1);
     ParaGlobal.ExitApp();
 end
 
