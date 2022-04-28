@@ -532,6 +532,19 @@ function AssetsManager:downloadNextAsset(index)
 	        LOG.std(nil, "info", "AssetsManager", "download assets uncompleted by loop:%d",self.try_num);
             if(self.try_num < try_redownload_max_num)then
                 self.try_num = self.try_num + 1;
+                for _,unit in ipairs(self._failedDownloadUnits) do
+                    for k,v in pairs(self._downloadUnits) do
+                        if v==unit then
+                            if ParaIO.DoesFileExist(unit.storagePath) then
+                                ParaIO.DeleteFile(unit.storagePath)
+                            end
+                            table.remove(self._downloadUnits,k)
+                            table.insert(self._downloadUnits,unit)
+                            break
+                        end
+                    end
+                end
+                self.download_next_asset_index = #self._downloadUnits - #self._failedDownloadUnits - 1
                 self._failedDownloadUnits = {};
                 self:downloadAssets();
             else
@@ -551,7 +564,11 @@ function AssetsManager:downloadNextAsset(index)
 	        LOG.std(nil, "info", "AssetsManager", "downloading: %s",unit.srcUrl);
 	        LOG.std(nil, "info", "AssetsManager", "temp storagePath: %s",unit.storagePath);
             local callback_str = string.format([[Mod.AutoUpdater.AssetsManager.downloadCallback("%s","%s")]],self.id,unit.customId);
-			NPL.AsyncDownload(unit.srcUrl, unit.storagePath, callback_str, unit.customId);
+            
+			NPL.AsyncDownload({
+                url = unit.srcUrl,
+                needResume = true,
+            }, unit.storagePath, callback_str, unit.customId);
         else
             self:downloadNext();
         end
@@ -577,7 +594,7 @@ function AssetsManager.downloadCallback(manager_id,id)
         manager:callback(manager.State.DOWNLOADING_ASSETS);
         local download_unit = manager._downloadUnits[manager.download_next_asset_index];
         local rcode = msg.rcode;
-        if((rcode and rcode ~= 200) or (msg.code and msg.code ~= 0)) then
+        if((rcode and rcode ~= 200 and rcode ~= 206) or (msg.code and msg.code ~= 0)) then --206是断点续传时候的正常返回
 	        LOG.std(nil, "warn", "AssetsManager", "download failed: %s, code: %d",download_unit.srcUrl, msg.code or 0);
             table.insert(manager._failedDownloadUnits,download_unit);
             manager:downloadNext();
