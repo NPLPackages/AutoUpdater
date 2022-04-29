@@ -716,7 +716,7 @@ function AssetsManager:applyByLauncher()
     print("hyz---------isFixMode",isFixMode)
     print("hyz---------applyManifestFile",applyManifestFile)
     print("hyz---------applyVerFile",applyVerFile)
-    local cmdStr = string.format("isFixMode=%s applyManifestFile=%s applyVerFile=%s",tostring(isFixMode),applyManifestFile,applyVerFile)
+    local cmdStr = string.format('isFixMode=%s applyManifestFile="%s" applyVerFile="%s"',tostring(isFixMode),applyManifestFile,applyVerFile)
     print("cmdStr",cmdStr)
     ParaGlobal.ShellExecute("open", "ParaCraft.exe", cmdStr, "", 1);
     ParaGlobal.ExitApp();
