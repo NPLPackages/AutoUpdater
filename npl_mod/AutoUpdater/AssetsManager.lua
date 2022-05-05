@@ -673,7 +673,7 @@ end
     bool resumeDownload;
     bool hasDownloaded;
 ]]
-function AssetsManager:applyByLauncher()
+function AssetsManager:prepare430apply()
     local len = #self._downloadUnits
     local arr = {}
     for i=1,len do
@@ -724,6 +724,12 @@ function AssetsManager:applyByLauncher()
     print("hyz---------applyVerFile",applyVerFile)
     local cmdStr = string.format('isFixMode=%s applyManifestFile="%s" applyVerFile="%s"',tostring(isFixMode),applyManifestFile,applyVerFile)
     print("cmdStr",cmdStr)
+    return cmdStr
+end
+
+function AssetsManager:applyByLauncher()
+    local cmdStr = self:prepare430apply()
+
     ParaGlobal.ShellExecute("open", "ParaCraft.exe", cmdStr, "", 1);
     ParaGlobal.ExitApp();
 end
