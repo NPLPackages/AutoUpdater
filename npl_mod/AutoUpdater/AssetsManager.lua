@@ -713,6 +713,12 @@ function AssetsManager:applyByLauncher()
     else
         isFixMode = true
     end
+    local launcherVer = ParaEngine.GetAppCommandLineByParam("launcherVer","")
+    if launcherVer == "" then --老版本
+        print("hyz---------is old launcher")
+        applyManifestFile = string.gsub(applyManifestFile,ParaIO.GetWritablePath(),"")
+        applyVerFile = string.gsub(applyVerFile,ParaIO.GetWritablePath(),"")
+    end
     print("hyz---------isFixMode",isFixMode)
     print("hyz---------applyManifestFile",applyManifestFile)
     print("hyz---------applyVerFile",applyVerFile)
