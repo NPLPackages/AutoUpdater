@@ -655,14 +655,7 @@ end
 
 --是否需要打开Launcher进行更新
 function AssetsManager:needApplyByLauncher()
-    print("needApplyByLauncher",System.os.GetPlatform() == "win32" and not System.os.IsWindowsXP())
-    if System.options.channelId=="430" and (System.os.GetPlatform() == "win32" and not System.os.IsWindowsXP()) then --改成全都是使用Launcher应用更新
-        return true
-    end
-    if System.options.channelId=="430" and (System.os.GetPlatform() == "win32" and not System.os.IsWindowsXP()) and self.hasDllUpdate then 
-        return true
-    end
-    return false
+    return self._needApplyByLauncher
 end
 
 --写入一个文本，让launcher去apply
