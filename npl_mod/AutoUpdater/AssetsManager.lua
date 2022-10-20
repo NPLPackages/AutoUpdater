@@ -56,6 +56,7 @@ AssetsManager.CheckVersionEnum = {
 	CheckVersion_FirstVersionChanged = 1,
 	CheckVersion_SecondVersionChanged = 2,
 	CheckVersion_ThirdVersionChanged = 3,
+	CheckVersion_FourVersionChanged = 3,
 	CheckVersion_LocalVersionIsNewer = 100,
     CheckVersion_Error = -1
 };
@@ -77,9 +78,12 @@ function AssetsManager:ctor()
 
     self._curVersion = nil;
     self._latestVersion = nil;
-    self._minSkipVersion = nil; --允许跳过更新的最低版本号
-    self._runTimeMinSkipVersion = nil; --允许跳过更新的nplRuntime最低版本号
+    self._minSkipVersion = nil; --script大于或小于此版本的，允许跳过本次更新
+    self._runTimeMinSkipVersion = nil; --本地runtime过低的，强制跳过本次更新（对于非windows平台有意义，因为非windows平台不能自更新runtime）
+    self._jumpAppStoreUrl = ""; --对于上架应用商店的渠道版本，runtime过低无法自更新的情况，提示跳转应用商店（或者官网）
     self._needUpdate = false;
+    self._allowSkip = false; --有更新但是允许跳过更新
+    self._needAppStoreUpdate = false; --需要跳转安装新的app
     self._comparedVersion = nil;
     self._hasVersionFile = false;
 
@@ -120,6 +124,7 @@ function AssetsManager:onInit(writablePath,config_filename,event_callback,moving
 	LOG.std(nil, "info", "AssetsManager", "config_filename:%s", config_filename or "");
 	
     self:loadConfig(config_filename)
+
 end
 function AssetsManager:callback(state, ...)
     if(self.event_callback)then
@@ -145,6 +150,44 @@ function AssetsManager:loadConfig(filename)
 	LOG.std(nil, "info", "AssetsManager:loadConfig", self.configs);
 end
 
+local function _EncodeURIComponent(str)
+    if (str) then
+		str = string.gsub(str, '\n', '\r\n')
+		str = string.gsub(str, '([^%w _ %- . ~])',
+			function (c) return string.format ('%%%02X', string.byte(c)) end)
+		str = string.gsub(str, ' ', '%%20')
+	end
+	return str
+end
+
+--新做的灰度更新，使用keepwork api
+function AssetsManager:resetVersionUrlWithKeepwork()
+    -- HttpWrapper.Create("keepwork.mall.orderResule", "%MAIN%/core/v0/mall/mOrders/" .. orderId, "GET", false)
+    local HttpWrapper = NPL.load("(gl)script/apps/Aries/Creator/HttpAPI/HttpWrapper.lua");
+    local baseUrl = HttpWrapper.GetUrl()
+    local url = baseUrl.."/version-control/version.xml"
+
+    local params = {
+        machineCode = ParaEngine.GetAttributeObject():GetField('MachineID', ''),
+        appId = System.options.appId,
+    }
+
+    local paramUrl = ""
+    local acc = 1
+    for k,v in pairs(params) do 
+        local str = "&"
+        if acc==1 then
+            str = "?"
+        end
+        v = _EncodeURIComponent(v)
+        paramUrl = string.format("%s%s%s=%s",paramUrl,str,k,v)
+        acc = acc + 1
+    end
+    self.configs.version_url = url..paramUrl
+
+    print("self.configs.version_url",self.configs.version_url)
+end
+
 -- step 1. check version
 -- @param callback: function(bSucceed) end
 function AssetsManager:check(version,callback)
@@ -165,21 +208,26 @@ function AssetsManager:check(version,callback)
     end
 	LOG.std(nil, "info", "AssetsManager", "local version is: %s",self._curVersion);
     self:downloadVersion(function(bSucceed)
-		if(bSucceed) then
-			LOG.std(nil, "info", "AssetsManager", "remote version is: %s",self._latestVersion);
-			self._comparedVersion = self:compareVersions();
-			LOG.std(nil, "info", "AssetsManager", "compared result is: %d",self._comparedVersion);
-			self._assetsCachesPath = self.storagePath .. self._latestVersion;
-			LOG.std(nil, "info", "AssetsManager", "Assets Cache Path is: %s",self._assetsCachesPath);
-			ParaIO.CreateDirectory(self._assetsCachesPath);
-			self:callback(self.State.VERSION_CHECKED);
-		end
-        
-        self:requestMinVersion(function()
+        local function _func()
+            if(bSucceed) then
+                LOG.std(nil, "info", "AssetsManager", "remote version is: %s",self._latestVersion);
+                self._comparedVersion = self:compareVersions();
+                LOG.std(nil, "info", "AssetsManager", "compared result is: %d",self._comparedVersion);
+                self._assetsCachesPath = self.storagePath .. self._latestVersion;
+                LOG.std(nil, "info", "AssetsManager", "Assets Cache Path is: %s",self._assetsCachesPath);
+                ParaIO.CreateDirectory(self._assetsCachesPath);
+                self:callback(self.State.VERSION_CHECKED);
+            end
+
             if(callback)then
                 callback(bSucceed);
             end
-        end)
+        end
+        if self._minSkipVersion==nil then
+            self:requestMinVersion(_func)
+        else
+            _func()
+        end
     end);
 end
 
@@ -213,9 +261,15 @@ function AssetsManager:_compareVer(ver_1,ver_2)
     end
     local list_1 = get_versions(ver_1)
     local list_2 = get_versions(ver_2)
+    list_1[4] = list_1[4] or 0
+    list_2[4] = list_2[4] or 0
     if(list_1[1] == list_2[1])then
         if(list_1[2] == list_2[2])then
-            return list_1[3] - list_2[3]
+            if list_1[3] == list_2[3] then
+                return list_1[4] - list_2[4]
+            else
+                return list_1[3] - list_2[3]
+            end
         else
             return list_1[2] - list_2[2]
         end
@@ -225,14 +279,17 @@ function AssetsManager:_compareVer(ver_1,ver_2)
 end
 
 --是否可以跳过更新
-function AssetsManager:isAutoSkip()
-    if self._minSkipVersion==nil then --没有请求到数据
-        return false
-    end
-    
-    -- print("hyz self._curVersion,self._minSkipVersion",self._curVersion,self._minSkipVersion)
-    -- print("----hyz aaa",_compare(self._curVersion,self._minSkipVersion))
-    return self:_compareVer(self._curVersion,self._minSkipVersion)>=0
+function AssetsManager:isAllowSkip()
+    return self._allowSkip
+end
+
+function AssetsManager:getAppStoreUrl()
+    return self._jumpAppStoreUrl
+end
+
+--runtime过低，需要安装新的app
+function AssetsManager:NeedAppStoreUpdate()
+    return self._needAppStoreUpdate
 end
 
 function AssetsManager:loadLocalVersion()
@@ -251,14 +308,19 @@ function AssetsManager:loadLocalVersion()
 end
 
 -- @param callback: function(bSucceed) end
-function AssetsManager:downloadVersion(callback)
+function AssetsManager:downloadVersion(callback,retryAcc)
     local version_url = self.configs.version_url;
     if(version_url)then
         self:callback(self.State.DOWNLOADING_VERSION);
-        version_url = string.format("%s?v=%s",version_url,ParaGlobal.GetDateFormat("yyyy-M-d"));
+        if version_url:match("?") then
+            version_url = string.format("%s&v=%s",version_url,ParaGlobal.GetDateFormat("yyyy-M-d"));
+        else
+            version_url = string.format("%s?v=%s",version_url,ParaGlobal.GetDateFormat("yyyy-M-d"));
+        end
 	    LOG.std(nil, "info", "AssetsManager:downloadVersion url is:", version_url);
         System.os.GetUrl(version_url, function(err, msg, data)
 			self._latestVersion = nil
+            echo(data,true)
 	        if(err == 200)then
                 if(data)then
                     if(type(data) == "table")then
@@ -270,6 +332,18 @@ function AssetsManager:downloadVersion(callback)
                     if(xmlRoot)then
                         for node in commonlib.XPath.eachNode(xmlRoot, "//UpdateVersion") do
                             self._latestVersion = node[1];
+                            break;
+	                    end
+                        for node in commonlib.XPath.eachNode(xmlRoot, "//MiniVersion") do --script大于或小于此版本的，允许跳过本次更新
+                            self._minSkipVersion = node[1];
+                            break;
+	                    end
+                        for node in commonlib.XPath.eachNode(xmlRoot, "//MiniNPLRuntimeVersion") do --本地runtime过低的，强制跳过本次更新（对于非windows平台有意义，因为非windows平台不能自更新runtime）
+                            self._runTimeMinSkipVersion = node[1];
+                            break;
+	                    end
+                        for node in commonlib.XPath.eachNode(xmlRoot, "//JumpAppStoreUrl") do --跳转应用商店地址，或者官网地址
+                            self._jumpAppStoreUrl = node[1];
                             break;
 	                    end
 
@@ -309,60 +383,96 @@ function AssetsManager:downloadVersion(callback)
                         end
                     end
                 end
-            end
-			if(not self._latestVersion) then
-				LOG.std(nil, "warn", "AssetsManager:downloadVersion err:", err);
-                self:callback(self.State.VERSION_ERROR);
-				if(callback) then
-					callback(false);
-				end
+            else
+                retryAcc = (retryAcc or 0) + 1
+                if retryAcc<=3 then
+                    self:downloadVersion(callback,retryAcc)
+                    return;
+                else
+                    LOG.std(nil, "warn", "AssetsManager:downloadVersion err:", err);
+                    self:callback(self.State.VERSION_ERROR);
+                    if(callback) then
+                        callback(false);
+                    end
+                end
             end
         end);
     end
 end
+
+--比较版本号，用于得出是否需要更新
 function AssetsManager:compareVersions()
-    if (self._curVersion == "0") then
-		self._needUpdate = true;
-		return self.CheckVersionEnum.CheckVersion_FirstVersionChanged;
-	end
-	if (self._curVersion == self._latestVersion) then
-		self._needUpdate = false;
-		return self.CheckVersionEnum.CheckVersion_SameAsLast;
+    local ret 
+    repeat
+        if (self._curVersion == "0") then
+            ret = self.CheckVersionEnum.CheckVersion_FirstVersionChanged;
+            break
+        end
+        if (self._curVersion == self._latestVersion) then
+            ret = self.CheckVersionEnum.CheckVersion_SameAsLast;
+            break
+        end
+    
+        local function get_versions(version_str)
+            local result = {};
+            for s in string.gfind(version_str or "", "%d+") do
+                table.insert(result, tonumber(s));
+            end
+            return result;
+        end
+    
+        local cur_version_list = get_versions(self._curVersion);
+        local latestVersion_list = get_versions(self._latestVersion);
+    
+        if(#cur_version_list < 3 or #latestVersion_list < 3)then
+            ret = self.CheckVersionEnum.CheckVersion_Error;
+            break
+        end
+        if(cur_version_list[1] < latestVersion_list[1])then
+            ret = self.CheckVersionEnum.CheckVersion_FirstVersionChanged;
+            break
+        elseif(cur_version_list[1] == latestVersion_list[1]) then
+            if(cur_version_list[2] < latestVersion_list[2])then
+                ret = self.CheckVersionEnum.CheckVersion_SecondVersionChanged;
+                break
+            elseif(cur_version_list[2] == latestVersion_list[2])then
+                if(cur_version_list[3] < latestVersion_list[3])then
+                    ret = self.CheckVersionEnum.CheckVersion_ThirdVersionChanged;
+                    break
+                elseif(cur_version_list[3] == latestVersion_list[3])then
+                    if(latestVersion_list[4]~=nil and (cur_version_list[4]==nil or cur_version_list[4] < latestVersion_list[4]))then --远程有新增第四位或者第四位更高
+                        ret = self.CheckVersionEnum.CheckVersion_FourVersionChanged;
+                        break
+                    else
+                        ret = self.CheckVersionEnum.CheckVersion_SameAsLast;
+                        break
+                    end
+                end
+            end
+        end
+        ret = self.CheckVersionEnum.CheckVersion_LocalVersionIsNewer;
+        break
+    until true
+    
+    self._comparedVersion = ret;
+
+    if self.CheckVersionEnum.CheckVersion_SameAsLast==ret or self.CheckVersionEnum.CheckVersion_LocalVersionIsNewer==ret then
+        self._needUpdate = false;
+    else
+        local runtimeVer = System.os.GetParaEngineVersion()
+        if (System.os.GetPlatform()~="win32" and not System.os.IsWindowsXP()) and self._runTimeMinSkipVersion~=nil and self:_compareVer(runtimeVer,self._runTimeMinSkipVersion)<0 then --非windows，runtime版本号过低，不能更新
+            self._needUpdate = false;
+            self._needAppStoreUpdate = true;
+        else
+            self._needUpdate = true;
+        end
     end
 
-    local function get_versions(version_str)
-        local result = {};
-        for s in string.gfind(version_str or "", "%d+") do
-            table.insert(result, tonumber(s));
-		end
-        return result;
+    if self._minSkipVersion~=nil then
+        self._allowSkip = self:_compareVer(self._curVersion,self._minSkipVersion)>=0
     end
-
-    local cur_version_list = get_versions(self._curVersion);
-    local latestVersion_list = get_versions(self._latestVersion);
-
-    if(#cur_version_list < 3 or #latestVersion_list < 3)then
-		return self.CheckVersionEnum.CheckVersion_Error;
-    end
-    if(cur_version_list[1] < latestVersion_list[1])then
-        self._needUpdate = true;
-		return self.CheckVersionEnum.CheckVersion_FirstVersionChanged;
-	elseif(cur_version_list[1] == latestVersion_list[1]) then
-		if(cur_version_list[2] < latestVersion_list[2])then
-			self._needUpdate = true;
-			return self.CheckVersionEnum.CheckVersion_SecondVersionChanged;
-		elseif(cur_version_list[2] == latestVersion_list[2])then
-			if(cur_version_list[3] < latestVersion_list[3])then
-				self._needUpdate = true;
-				return self.CheckVersionEnum.CheckVersion_ThirdVersionChanged;
-			elseif(cur_version_list[3] == latestVersion_list[3])then
-				self._needUpdate = false;
-				return self.CheckVersionEnum.CheckVersion_SameAsLast;
-			end
-		end
-    end
-	self._needUpdate = false;
-	return self.CheckVersionEnum.CheckVersion_LocalVersionIsNewer;
+        
+    return ret;
 end
 
 -- step 2. download asset manifest and download assets
@@ -374,7 +484,7 @@ function AssetsManager:download()
     self.try_num = 1;
 	self:downloadManifest(self._comparedVersion, self.validHostIndex);
 end
-function AssetsManager:downloadManifest(ret, hostServerIndex)
+function AssetsManager:downloadManifest(ret, hostServerIndex, retryAcc)
     local len = #self.configs.hosts;
     if (hostServerIndex > len)then
 		return;
@@ -382,7 +492,7 @@ function AssetsManager:downloadManifest(ret, hostServerIndex)
 	local updatePackUrl;
 	if (self.CheckVersionEnum.CheckVersion_FirstVersionChanged == ret or self.CheckVersionEnum.CheckVersion_SecondVersionChanged == ret) then
 		updatePackUrl = self:getPatchListUrl(true, hostServerIndex);
-	elseif(self.CheckVersionEnum.CheckVersion_ThirdVersionChanged == ret)then
+	elseif(self.CheckVersionEnum.CheckVersion_ThirdVersionChanged == ret or self.CheckVersionEnum.CheckVersion_FourVersionChanged == ret)then
 		updatePackUrl = self:getPatchListUrl(false, hostServerIndex);
 	else
 		updatePackUrl = self:getPatchListUrl(true, hostServerIndex);
@@ -399,13 +509,19 @@ function AssetsManager:downloadManifest(ret, hostServerIndex)
             self:parseManifest(data);
             self:downloadAssets();
         else
+            self.validHostIndex = self.validHostIndex + 1;
             local len = #self.configs.hosts;
             if(self.validHostIndex >= len)then
-                self:callback(self.State.MANIFEST_ERROR);
+                retryAcc = (retryAcc or 0) + 1
+                if retryAcc<=3 then --最多重试3次
+                    self.validHostIndex = 0;
+	                self:downloadManifest(self._comparedVersion, self.validHostIndex,retryAcc);
+                else
+                    self:callback(self.State.MANIFEST_ERROR);
+                end
                 return
             end
-            self.validHostIndex = self.validHostIndex + 1;
-	        self:downloadManifest(self._comparedVersion, self.validHostIndex);
+	        self:downloadManifest(self._comparedVersion, self.validHostIndex,retryAcc);
         end
     end)
 end
@@ -424,7 +540,7 @@ function AssetsManager:getPatchListUrl(is_full_list, nCandidate)
         end
 		return url;
 	else
-		-- like this:"http://update.61.com/haqi/coreupdate/coredownload/0.7.272/list/patch_0.7.0.txt"
+        -- like this:"http://cdn.keepwork.com/update61/coredownload/1.0.228/list/patch_1.0.100.p"
 		return hostServer .. "coredownload/" .. self._latestVersion .. "/list/patch_" .. self._curVersion .. FILE_LIST_FILE_EXT;
 	end
 end
@@ -440,7 +556,6 @@ function AssetsManager:parseManifest(data)
 		end
         return result;
     end
-    self.hasDllUpdate = false --是否存在dll更新
     -- check duplicated urls
     local duplicated_urls = {};
     local line;
@@ -451,8 +566,7 @@ function AssetsManager:parseManifest(data)
                 local filename = arr[1];
 				if(not self:FilterFile(filename)) then
                     if(filename:match("%.exe") or filename:match("%.dll")) then
-                        print("-------self.hasDllUpdate = true")
-                        self.hasDllUpdate = true
+
                     end
 					local md5 = arr[2];
 					local size = arr[3];
