@@ -574,7 +574,8 @@ function AssetsManager:parseManifest(data)
 					self._totalSize = self._totalSize + file_size;
 					local download_path = string.format("%s,%s,%s.p", filename, md5, size);
 					local download_unit = {
-						srcUrl = string.format("%scoredownload/update/%s", hostServer, download_path),
+						-- srcUrl = string.format("%scoredownload/update/%s", hostServer, download_path),
+                        srcUrl = string.format("%scoredownload/%s/update2/%s", hostServer,self._latestVersion, download_path),--支持更新到指定版本(self._latestVersion)
 						storagePath = self._assetsCachesPath .. "/" .. self:FilterStoragePath(filename),
 						customId = filename,
 						hasDownloaded = false,
