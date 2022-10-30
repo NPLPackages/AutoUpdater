@@ -574,8 +574,7 @@ function AssetsManager:parseManifest(data)
 					self._totalSize = self._totalSize + file_size;
 					local download_path = string.format("%s,%s,%s.p", filename, md5, size);
 					local download_unit = {
-						-- srcUrl = string.format("%scoredownload/update/%s", hostServer, download_path),
-                        srcUrl = string.format("%scoredownload/%s/update2/%s", hostServer,self._latestVersion, download_path),--支持更新到指定版本(self._latestVersion)
+						srcUrl = string.format("%scoredownload/update/%s", hostServer, download_path),
 						storagePath = self._assetsCachesPath .. "/" .. self:FilterStoragePath(filename),
 						customId = filename,
 						hasDownloaded = false,
@@ -583,6 +582,9 @@ function AssetsManager:parseManifest(data)
 						PercentDone = 0,
 						md5 = md5,
 					}
+                    if self._isMainUpdater then--支持更新到指定版本(self._latestVersion)
+                        download_unit.srcUrl = string.format("%scoredownload/%s/update2/%s", hostServer,self._latestVersion, download_path)
+                    end
 					if(ParaIO.DoesFileExist(download_unit.storagePath))then
 						if(self:checkMD5(download_unit.storagePath,md5))then
 							LOG.std(nil, "info", "AssetsManager", "this file has existed: %s",download_unit.storagePath);
