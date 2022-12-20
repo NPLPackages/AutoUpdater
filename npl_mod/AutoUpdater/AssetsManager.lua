@@ -920,6 +920,7 @@ function AssetsManager:apply()
 
 		app_dest_folder = app_dest_folder:gsub("^/", "");
         app_dest_folder = self.writablePath .. app_dest_folder;
+        collectgarbage("collect");
         if (not self:checkMD5(storagePath,v.md5)) then
 	        LOG.std(nil, "error", "AssetsManager", "failed to compare md5 file: %s",storagePath);
 			self._failedUpdateFiles[app_dest_folder] = self.UpdateFailedReason.MD5;
