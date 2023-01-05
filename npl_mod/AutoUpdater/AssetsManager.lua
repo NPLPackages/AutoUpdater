@@ -585,6 +585,9 @@ function AssetsManager:parseManifest(data)
                     if self._isMainUpdater then--支持更新到指定版本(self._latestVersion)
                         download_unit.srcUrl = string.format("%scoredownload/%s/update2/%s", hostServer,self._latestVersion, download_path)
                     end
+                    if System.options.isDevMode then
+                        echo(download_unit.srcUrl)
+                    end
 					if(ParaIO.DoesFileExist(download_unit.storagePath))then
 						if(self:checkMD5(download_unit.storagePath,md5))then
 							LOG.std(nil, "info", "AssetsManager", "this file has existed: %s",download_unit.storagePath);
@@ -840,7 +843,7 @@ end
 function AssetsManager:applyByLauncher()
     local cmdStr = self:prepare430apply()
 
-    ParaGlobal.ShellExecute("open", "ParaCraft.exe", cmdStr, "", 1);
+    ParaGlobal.ShellExecute("open", System.options.launcherExeName or "ParaCraft.exe", cmdStr, "", 1);
     ParaGlobal.ExitApp();
 end
 
