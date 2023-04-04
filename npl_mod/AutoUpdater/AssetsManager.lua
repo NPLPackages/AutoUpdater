@@ -207,7 +207,7 @@ function AssetsManager:check(version,callback)
         self._curVersion = version;
     end
 	LOG.std(nil, "info", "AssetsManager", "local version is: %s",self._curVersion);
-    self:downloadVersion(function(bSucceed)
+	self:downloadVersion(function(bSucceed)
         local function _func()
             if(bSucceed) then
                 LOG.std(nil, "info", "AssetsManager", "remote version is: %s",self._latestVersion);
@@ -224,14 +224,16 @@ function AssetsManager:check(version,callback)
             end
         end
         if self._minSkipVersion==nil then
-            self:requestMinVersion(_func)
+			LOG.std(nil, "error", "AssetsManager", "missing mini version in version server, you may be using an old verison url or launcher: %s", self:GetVersionUrl());
+            -- self:requestMinVersion(_func)
+			_func()
         else
             _func()
         end
     end);
 end
 
---从后端获取获取minVersion
+-- OBSOLETED function 
 --只要curVersion>=minVersion,就允许跳过本次更新
 function AssetsManager:requestMinVersion(callback)
     self._minSkipVersion = nil
@@ -305,6 +307,10 @@ function AssetsManager:loadLocalVersion()
 	else
 		LOG.std(nil, "warn", "AssetsManager", "file %s not FOUND", self.localVersionTxt);	
 	end
+end
+
+function AssetsManager:GetVersionUrl()
+	return self.configs.version_url or "";
 end
 
 -- @param callback: function(bSucceed) end
