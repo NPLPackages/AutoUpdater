@@ -166,9 +166,12 @@ function AssetsManager:resetVersionUrlWithKeepwork()
     local HttpWrapper = NPL.load("(gl)script/apps/Aries/Creator/HttpAPI/HttpWrapper.lua");
     local baseUrl = HttpWrapper.GetUrl()
     local url = baseUrl.."/version-control/version.xml"
-
+    local machineCode = ParaEngine.GetAttributeObject():GetField('MachineID', '')
+    if GameLogic.GetMachineID and type(GameLogic.GetMachineID) == "function" then
+        machineCode = GameLogic.GetMachineID(machineCode)
+    end
     local params = {
-        machineCode = ParaEngine.GetAttributeObject():GetField('MachineID', ''),
+        machineCode = machineCode,
         appId = System.options.appId,
     }
 
@@ -352,7 +355,10 @@ function AssetsManager:downloadVersion(callback,retryAcc)
                             self._jumpAppStoreUrl = node[1];
                             break;
 	                    end
-
+                        for node in commonlib.XPath.eachNode(xmlRoot, "//LatestVersion") do --可更新版本
+                            self._latestVersion = node[1];
+                            break;
+	                    end
 						-- find hosts in version.txt
 						local index = 1;
 						for node in commonlib.XPath.eachNode(xmlRoot, "//FullUpdatePackUrl") do
@@ -719,6 +725,11 @@ function AssetsManager.downloadCallback(manager_id,id)
     if(msg)then
         manager:callback(manager.State.DOWNLOADING_ASSETS);
         local download_unit = manager._downloadUnits[manager.download_next_asset_index];
+        if(not download_unit) then
+            LOG.std(nil, "warn", "AssetsManager", "download item not found, code: %d", msg.code or 0);
+            manager:downloadNext();
+            return
+        end
         local rcode = msg.rcode;
         if((rcode and rcode ~= 200 and rcode ~= 206) or (msg.code and msg.code ~= 0)) then --206是断点续传时候的正常返回
 	        LOG.std(nil, "warn", "AssetsManager", "download failed: %s, code: %d",download_unit.srcUrl, msg.code or 0);
