@@ -339,26 +339,31 @@ function AssetsManager:downloadVersion(callback,retryAcc)
                     local body = "<root>" .. data .. "</root>";
                     local xmlRoot = ParaXML.LuaXML_ParseString(body);
                     if(xmlRoot)then
-                        for node in commonlib.XPath.eachNode(xmlRoot, "//UpdateVersion") do
-                            self._latestVersion = node[1];
-                            break;
-	                    end
-                        for node in commonlib.XPath.eachNode(xmlRoot, "//MiniVersion") do --script大于或小于此版本的，允许跳过本次更新
-                            self._minSkipVersion = node[1];
-                            break;
-	                    end
-                        for node in commonlib.XPath.eachNode(xmlRoot, "//MiniNPLRuntimeVersion") do --本地runtime过低的，强制跳过本次更新（对于非windows平台有意义，因为非windows平台不能自更新runtime）
-                            self._runTimeMinSkipVersion = node[1];
-                            break;
-	                    end
-                        for node in commonlib.XPath.eachNode(xmlRoot, "//JumpAppStoreUrl") do --跳转应用商店地址，或者官网地址
-                            self._jumpAppStoreUrl = node[1];
-                            break;
-	                    end
-                        for node in commonlib.XPath.eachNode(xmlRoot, "//LatestVersion") do --可更新版本
-                            self._latestVersion = node[1];
-                            break;
-	                    end
+						local updateVersion,latestVersion
+						for node in commonlib.XPath.eachNode(xmlRoot, "//UpdateVersion") do --灰度版本
+						    updateVersion = node[1];
+						    break;
+						end
+						for node in commonlib.XPath.eachNode(xmlRoot, "//MiniVersion") do --script大于或小于此版本的，允许跳过本次更新
+						    self._minSkipVersion = node[1];
+						    break;
+						end
+						for node in commonlib.XPath.eachNode(xmlRoot, "//MiniNPLRuntimeVersion") do --本地runtime过低的，强制跳过本次更新（对于非windows平台有意义，因为非windows平台不能自更新runtime）
+						    self._runTimeMinSkipVersion = node[1];
+						    break;
+						end
+						for node in commonlib.XPath.eachNode(xmlRoot, "//JumpAppStoreUrl") do --跳转应用商店地址，或者官网地址
+						    self._jumpAppStoreUrl = node[1];
+						    break;
+						end
+						for node in commonlib.XPath.eachNode(xmlRoot, "//LatestVersion") do --可更新版本
+						    latestVersion = node[1];
+						    break;
+						end
+						--如果灰度版本比可更新版本小，以可更新版本为准，否则以灰度版本为准
+						local bNewVersion = self:_compareVer(updateVersion,latestVersion) >= 0
+						self._latestVersion = bNewVersion and updateVersion or latestVersion;
+						print("version str =======",self._latestVersion,bNewVersion,updateVersion,latestVersion)
 						-- find hosts in version.txt
 						local index = 1;
 						for node in commonlib.XPath.eachNode(xmlRoot, "//FullUpdatePackUrl") do
