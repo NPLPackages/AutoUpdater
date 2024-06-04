@@ -79,6 +79,7 @@ function AssetsManager:ctor()
     self._curVersion = nil;
     self._latestVersion = nil;
     self._minSkipVersion = nil; --script大于或小于此版本的，允许跳过本次更新
+    self._updateVersion = nil; --灰度版本号
     self._runTimeMinSkipVersion = nil; --本地runtime过低的，强制跳过本次更新（对于非windows平台有意义，因为非windows平台不能自更新runtime）
     self._jumpAppStoreUrl = ""; --对于上架应用商店的渠道版本，runtime过低无法自更新的情况，提示跳转应用商店（或者官网）
     self._needUpdate = false;
@@ -329,6 +330,10 @@ function AssetsManager:downloadVersion(callback,retryAcc)
 	    LOG.std(nil, "info", "AssetsManager:downloadVersion url is:", version_url);
         System.os.GetUrl(version_url, function(err, msg, data)
 			self._latestVersion = nil
+            self._updateVersion = nil
+            self._minSkipVersion = nil
+            self._runTimeMinSkipVersion = nil
+            self._jumpAppStoreUrl = ""
             echo(data,true)
 	        if(err == 200)then
                 if(data)then
@@ -342,6 +347,7 @@ function AssetsManager:downloadVersion(callback,retryAcc)
 						local updateVersion,latestVersion
 						for node in commonlib.XPath.eachNode(xmlRoot, "//UpdateVersion") do --灰度版本
 						    updateVersion = node[1];
+                            self._updateVersion = updateVersion
 						    break;
 						end
 						for node in commonlib.XPath.eachNode(xmlRoot, "//MiniVersion") do --script大于或小于此版本的，允许跳过本次更新
@@ -363,7 +369,7 @@ function AssetsManager:downloadVersion(callback,retryAcc)
 						--如果灰度版本比可更新版本小，以可更新版本为准，否则以灰度版本为准
 						local bNewVersion = self:_compareVer(updateVersion,latestVersion) >= 0
 						self._latestVersion = bNewVersion and updateVersion or latestVersion;
-						print("version str =======",self._latestVersion,bNewVersion,updateVersion,latestVersion)
+						print("version str =======",self._latestVersion,bNewVersion,updateVersion,latestVersion,self._minSkipVersion,self._runTimeMinSkipVersion,self._jumpAppStoreUrl)
 						-- find hosts in version.txt
 						local index = 1;
 						for node in commonlib.XPath.eachNode(xmlRoot, "//FullUpdatePackUrl") do
@@ -440,7 +446,6 @@ function AssetsManager:compareVersions()
     
         local cur_version_list = get_versions(self._curVersion);
         local latestVersion_list = get_versions(self._latestVersion);
-    
         if(#cur_version_list < 3 or #latestVersion_list < 3)then
             ret = self.CheckVersionEnum.CheckVersion_Error;
             break
@@ -488,7 +493,6 @@ function AssetsManager:compareVersions()
     if self._minSkipVersion~=nil then
         self._allowSkip = self:_compareVer(self._curVersion,self._minSkipVersion)>=0
     end
-        
     return ret;
 end
 
@@ -1040,6 +1044,12 @@ end
 function AssetsManager:getLatestVersion()
     return self._latestVersion;
 end
+function AssetsManager:getUpdateVersion()
+    return self._updateVersion;
+end
+function AssetsManager:getMiniVersion()
+    return self._minSkipVersion;
+end
 -- get the number value of version
 -- @param {string} version - "0.0.1"
 -- return {number}
@@ -1060,4 +1070,14 @@ function AssetsManager.getVersionNumberValue(version)
     end
     local v = version_list[1] * 1000 * 1000 + version_list[2] * 1000 + version_list[3]
     return v;
+end
+
+function AssetsManager:SetLatestVersion(latest_version)
+    self._latestVersion = latest_version;
+    self._assetsCachesPath = self.storagePath .. self._latestVersion;
+    ParaIO.CreateDirectory(self._assetsCachesPath);
+end
+
+function AssetsManager:SetNeedUpdate(need_update)
+    self._needUpdate = need_update;
 end
